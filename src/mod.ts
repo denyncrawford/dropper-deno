@@ -117,6 +117,13 @@ class Dropper extends EventEmitter {
                this.clients.delete(uuid);
                client = null;
              });
+             client.on('message', ev => {
+              this.emit("message", ev);
+              if (hasJsonStructure(ev)) {
+                let { evt, data } = JSON.parse(ev);
+                this.emit(evt, data)
+              }
+             })
              client.on("dropper_broadcast", async data => {
                let data_send = JSON.parse(data)
                this.clients.forEach(async (c) => {
