@@ -1,11 +1,11 @@
 {
   "$schema": "https://x.nest.land/eggs@0.3.2/src/schema.json",
   "name": "dropper",
-  "entry": "src/mod.ts",
-  "description": "Custom event-based websockets library",
+  "entry": "./src/mod.ts",
+  "description": "Custom event-based websockets library for deno 🦕",
   "homepage": "https://dropper.crawford.ml",
   "repository": "https://github.com/denyncrawford/dropper-deno",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "files": [
     "LICENSE.md",
     "README.md",
@@ -16,5 +16,7 @@
   "checkFormat": false,
   "checkTests": false,
   "checkInstallation": false,
-  "check": false
+  "check": false,
+  "ignore": [],
+  "unlisted": false
 }

@@ -16,13 +16,13 @@ Since Dropper is a WebSocket solution for delivering messages between servers an
 **Client:**
 
 ```ts
-import Dropper from "https://deno.land/x/dropper@1.0.0/mod.ts";
+import Dropper from "https://deno.land/x/dropper@1.0.0/src/mod.ts";
 ```
 
 **Server:**
 
 ```ts
-import { Server } from "https://deno.land/x/dropper@1.0.0/mod.ts";
+import { Server } from "https://deno.land/x/dropper@1.0.0/src/mod.ts";
 ```
 
 ## Usage
