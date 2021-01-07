@@ -37,7 +37,7 @@ class Dropper extends EventEmitter {
   }
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
     if (this._socket !== null) {
-      let data_push: string = data ? JSON.stringify({ evt, data, client: this.uuid}) : JSON.stringify({ evt: 'message', data: evt, client: this.uuid});
+      let data_push: string = data ? JSON.stringify({ evt, data, client: this.uuid}) : JSON.stringify({ evt: '_all_', data: evt, client: this.uuid});
       if (this._socket !== null) await this.emit("_broadcast_", data_push)
     }
   }
