@@ -139,8 +139,8 @@ class Dropper extends EventEmitter {
                client = null;
              });
              // Global Events
-             client.on('message', ev => {
-              this.emit("message", ev);
+             client.on('_all_', ev => {
+              this.emit("_all_", ev);
               if (hasJsonStructure(ev)) {
                 let { evt, data } = JSON.parse(ev);
                 this.emit(evt, data)
