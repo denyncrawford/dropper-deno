@@ -1,14 +1,12 @@
 # Dropper
 
-A simple WebSocket based event/data pusher that runs in your Deno app.
-
-Dropper is a custom **Event-driven WebSocket library** for Deno, using the deno-std ws module as base.
+Dropper is a custom **Event-driven WebSocket framework** for Deno, using the deno-std ws module as base.
 
 Send and receive notifications, messages, updates and any data, all in real-time with custom events and methods served on your own, Dropper is Open Source, self-served and FREE forever!
 
 ## What can I do with Dropper?
 
-Since Dropper is a WebSocket solution for delivering messages between servers and clients in real-time, our Side by Side APIs are designed to handle custom events sent by the application peers, you can work with the structured event handlers that allows to send and receive data in a woshhh.
+Since Dropper is a WebSocket solution for delivering messages between servers and clients in real-time, it's Side by Side APIs are designed to handle custom events sent by the application peers, you can work with the structured event handlers that allows to send and receive classified data in a woshhh.
 
 
 ## Importing
@@ -16,17 +14,17 @@ Since Dropper is a WebSocket solution for delivering messages between servers an
 **Client:**
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.0.0/src/mod.ts';
+import Dropper from 'https://deno.land/x/dropper@1.3.0/src/mod.ts';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.1.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.3.0/src/mod.ts'
 ```
 
 **Server:**
 
 ```ts
-import { Server } from 'https://deno.land/x/dropper@1.0.0/src/mod.ts';
+import { Server } from 'https://deno.land/x/dropper@1.3.0/src/mod.ts';
 //or
-import { Server } from 'https://x.nest.land/dropper@1.1.0/src/mod.ts'
+import { Server } from 'https://x.nest.land/dropper@1.3.0/src/mod.ts'
 ```
 
 ## Usage
@@ -101,12 +99,39 @@ dropper.send('hello')
 
 All clients will receive the data .
 
+### Handling disconnections from server
+
+You can handle disconnections on two scopes:
+
+**From socket**:
+
+Handling disconnects from sockets only works if the socket is manually disconnected. It will not work if the client loses connection. The callback receives the same two arguments as in the client API (bellow).
+
+```javascript
+dropper.on('connection', socket => {
+  socket.on('close', (code, reason) => {
+    //...foo
+  })
+})
+```
+
+**From global**
+
+Handling global disconnects will listen to all clients that disconnect manually and also those that lose connection. The callback receives the same two arguments as in the client API (bellow) plus the disconnected socket as in the connection event.
+
+```javascript
+dropper.on('disconnection', (code, reason, socket) => {
+  //...foo
+})
+```
+
 ## Reserved event senders
 
 This is a list with the events you shouldn't play with:
 
 - `connection` - The connection event sending is reserved for handling peer connection on server.
 - `error` - The error event sending is reserved for handling connection issues.
+- `disconnection` - The disconnection event sending is reserved for handling peer disconnection on server.
 
 ## Client
 
@@ -116,8 +141,11 @@ The client API connects to a server and it is a socket instance, so it has the s
 const dropper = new Dropper(); // Connect the client on port 8080
 dropper.on('pizza', function(data){
   console.log(data) // => I sent you a pizza!
-  dropper.emit('thanks', 'Thanks btw');
+  dropper.send('thanks', 'Thanks btw');
+  dropper.close() // Closes the connection manually
 });
+
+dropper.on('close' => console.log('done'))
 ```
 
 **The client has four methods**:
@@ -151,23 +179,30 @@ dropper.on('pizza', function(data){
 
 This is a list with the events you shouldn't play with:
 
-- `binary` - The binary event sending is reserved for handling Uint8Array data.
+- `_binary_` - The binary event sending is reserved for handling Uint8Array data.
 - `error` - The error event sending is reserved for handling connection issues.
-- `message` - The message event is the global event for listening to data.
-- `ping` - The ping event is a websockets connection handler.
-- `pong` - The pong event is a websockets connection handler.
+- `_all_` - The message event is the global event for listening to data.
+- `_ping_` - The ping event is a websockets connection handler.
+- `_pong_` - The pong event is a websockets connection handler.
+- `_broadcast_` - The broadcast event is an internal event for transport data to all users but the current one.
+
+## Event collision warning
+
+All the Dropper internal events has as prefix and suffix `_`. For example this is an internal event: `_ping_`, This is for preventing event collisions.
 
 #### The documentation is WIP right now
 
 By now, you can find detailed code in the examples folder.
 
-# 📝 TO DO
+# 📝 Roadmap
 
 - Channels support
+- ✔️ Rename the `message` event to `_all_`
+- Auto reconnect
 - Improve documentation
 - Website
-- Prevent using internal events
-- Handle forced client disconnection
+- ✔️ Prevent using internal events
+- ✔️ Handle forced client disconnection
 
 # 👊 Support this project by donating on:
 - [Paypal](https://paypal.me/DENYNCRAWFORD?locale.x=en_US).

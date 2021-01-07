@@ -38,7 +38,7 @@ class Dropper extends EventEmitter {
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
     if (this._socket !== null) {
       let data_push: string = data ? JSON.stringify({ evt, data, client: this.uuid}) : JSON.stringify({ evt: 'message', data: evt, client: this.uuid});
-      if (this._socket !== null) await this.emit("dropper_broadcast", data_push)
+      if (this._socket !== null) await this.emit("_broadcast_", data_push)
     }
   }
   public async close(code: number = 1005, reason: string = ""): Promise<void> {
@@ -51,22 +51,22 @@ class Dropper extends EventEmitter {
     for await (const ev of socket) {
       try {
         if (typeof ev === "string") {
-          this.emit("message", ev);
+          this.emit("_all_", ev);
           if (hasJsonStructure(ev)) {
             let { evt, data } = JSON.parse(ev);
             this.emit(evt, data)
           }
         } else if (ev instanceof Uint8Array) {
-          this.emit("binary", ev);
-        } else if (isWebSocketPingEvent(ev)) {
+          this.emit("_binary_", ev);
+        } else if (isWebSocketPingEvent(ev)) { 
           const [, body] = ev;
-          this.emit("ping", body);
+          this.emit("_ping_", body);
         } else if (isWebSocketCloseEvent(ev)) {
           const { code, reason } = ev;
           this.emit("close", code, reason);
         } else if (isWebSocketPongEvent(ev)) {
           const [, body] = ev;
-          this.emit("pong", body);
+          this.emit("_pong_", body);
         }
       } catch (e) {
         this.emit("error", e);
@@ -82,10 +82,12 @@ class Dropper extends EventEmitter {
    constructor(
      public readonly host: string = "localhost",
      public readonly port: number = 8080,
+     public readonly interval: number = 3000
    ) {
      super();
      this.init();
    }
+   // Global sending
    public async send(evt: string | Uint8Array | object, data ? : string | Uint8Array | object): Promise < void > {
      let data_push: string = data ? JSON.stringify({
        evt,
@@ -109,14 +111,34 @@ class Dropper extends EventEmitter {
            bufWriter: req.w,
          })
          .then(
-           async (sock: WebSocket): Promise < void > => {
-             let client: Dropper | null = new Dropper(sock);
+           async (socket: WebSocket): Promise < void > => {
+             let client: Dropper | null = new Dropper(socket);
              const uuid = client.uuid;
              this.clients.set(client.uuid, client);
+             // Connection checker
+             let tm: any;
+             const ping = () => {
+                if (!client?._socket?.isClosed) client?._socket?.ping()
+                tm = setTimeout( () => {
+                  clearInterval(int);
+                  this.emit("disconnection", 1001, 'Client is leaving', client)
+                  this.clients.delete(uuid);
+                  client = null;
+                }, 1000);
+             }
+             // interval initialization
+             let int = setInterval(ping, this.interval);
+             client.on('_pong_', () => {               
+              clearTimeout(tm);
+             })
+             // Close
              client.on("close", (code, reason) => {
+              clearInterval(int);
+               this.emit("disconnection", code, reason)
                this.clients.delete(uuid);
                client = null;
              });
+             // Global Events
              client.on('message', ev => {
               this.emit("message", ev);
               if (hasJsonStructure(ev)) {
@@ -124,7 +146,8 @@ class Dropper extends EventEmitter {
                 this.emit(evt, data)
               }
              })
-             client.on("dropper_broadcast", async data => {
+             // Broadcast
+             client.on("_broadcast_", async data => {
                let data_send = JSON.parse(data)
                this.clients.forEach(async (c) => {
                  if (data_send.client !== c.uuid) {
