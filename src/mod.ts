@@ -1,11 +1,10 @@
-import { hasJsonStructure } from './helpers.ts'
-import { WebSocket } from "https://deno.land/std@0.63.0/ws/mod.ts";
+import { hasJsonStructure, connectWebSocket } from './helpers.ts'
+import { WebSocket } from "https://deno.land/std@0.83.0/ws/mod.ts";
 import { 
   EventEmitter, 
   v4, 
   serve,
   acceptWebSocket,
-  connectWebSocket,
   isWebSocketCloseEvent,
   isWebSocketPingEvent,
   isWebSocketPongEvent,
@@ -19,10 +18,10 @@ class Dropper extends EventEmitter {
     super();
     if (typeof arg === "string") {
       this.uri = arg;
-      connectWebSocket(this.uri).then((socket) => {
+      connectWebSocket(this.uri).then((socket:WebSocket) => {
         this._socket = socket;
         this.init(this._socket);
-      }).catch((err) => {
+      }).catch((err:any) => {
         this.emit("error", err);
       });
     } else {

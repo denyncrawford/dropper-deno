@@ -14,17 +14,17 @@ Since Dropper is a WebSocket solution for delivering messages between servers an
 **Client:**
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.5.0/src/mod.ts';
+import Dropper from 'https://deno.land/x/dropper@1.6.0/src/mod.ts';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.5.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.6.0/src/mod.ts'
 ```
 
 **Server:**
 
 ```ts
-import { Server } from 'https://deno.land/x/dropper@1.5.0/src/mod.ts';
+import { Server } from 'https://deno.land/x/dropper@1.6.0/src/mod.ts';
 //or
-import { Server } from 'https://x.nest.land/dropper@1.5.0/src/mod.ts'
+import { Server } from 'https://x.nest.land/dropper@1.6.0/src/mod.ts'
 ```
 
 ## Usage
@@ -107,7 +107,7 @@ All clients will receive the data .
 
 - **All events from current socket or globally**:
 
-The event name for listen to all events is `_all_`
+The event name for listening to all events is `_all_`
 
 ```javascript
 dropper.on('connection', socket => {
