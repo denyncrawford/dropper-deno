@@ -14,17 +14,17 @@ Since Dropper is a WebSocket solution for delivering messages between servers an
 **Client:**
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.3.0/src/mod.ts';
+import Dropper from 'https://deno.land/x/dropper@1.5.0/src/mod.ts';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.3.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.5.0/src/mod.ts'
 ```
 
 **Server:**
 
 ```ts
-import { Server } from 'https://deno.land/x/dropper@1.3.0/src/mod.ts';
+import { Server } from 'https://deno.land/x/dropper@1.5.0/src/mod.ts';
 //or
-import { Server } from 'https://x.nest.land/dropper@1.3.0/src/mod.ts'
+import { Server } from 'https://x.nest.land/dropper@1.5.0/src/mod.ts'
 ```
 
 ## Usage
@@ -53,6 +53,8 @@ dropper.on('thanks', data => {
 
 ```
 
+### Methods
+
 **The server has two methods**:
 
   - `on` - Listen for the server events.
@@ -69,7 +71,9 @@ dropper.on('thanks', data => {
       - Argument1: `event` | `data` - This argument changes to data if the data argument is not provided, by default it is the event name.
       - `data` (optional) - This is the data to be sent.
 
-### You can send data to clients in three ways:
+### Sending data to clients
+
+You can send data to clients in three ways:
 
 - **Just to the current socket**:
 
@@ -99,6 +103,46 @@ dropper.send('hello')
 
 All clients will receive the data .
 
+### Listening for client events
+
+- **All events from current socket or globally**:
+
+The event name for listen to all events is `_all_`
+
+```javascript
+dropper.on('connection', socket => {
+  socket.on('_all_', data => { // Listen for all events from this socket
+
+  })
+})
+
+// or globally
+
+dropper.on('_all_', ...foo)
+```
+
+- **Custom events from current socket or globally**:
+
+```javascript
+...
+socket.on('custom_event', ...foo) // Catch event just from the socket
+...
+
+dropper.on('custom_event', ...foo) // Catch event from all sockets
+```
+
+- **No named events from current socket or globally**:
+
+If the client send a no named event (`client_side_dropper.send('no named')`), you can listen to it with the event name `message`
+
+```javascript
+...
+socket.on('message', ...foo) // Catch no named event just from the socket
+...
+
+dropper.on('message', ...foo) // Catch no named event from all sockets
+```
+
 ### Handling disconnections from server
 
 You can handle disconnections on two scopes:
@@ -125,7 +169,7 @@ dropper.on('disconnection', (code, reason, socket) => {
 })
 ```
 
-## Reserved event senders
+### Reserved event senders
 
 This is a list with the events you shouldn't play with:
 
@@ -148,6 +192,8 @@ dropper.on('pizza', function(data){
 dropper.on('close' => console.log('done'))
 ```
 
+### Methods
+
 **The client has four methods**:
 
 - `close` - Closes the connection.
@@ -157,7 +203,7 @@ dropper.on('close' => console.log('done'))
   - `code` - Connection close code number
   - `reason` - A reason message for the close event.
 
-- `broadcast` - Send the data to the server to be broadcasted to all peers but this (Only works on server-side).
+- `broadcast` - Send the data to the server to be broadcasted to all peers but this (Meant to be used on server-side).
 
   The `broadcast` method receive two arguments.
 
@@ -175,7 +221,47 @@ dropper.on('close' => console.log('done'))
 
   The `send` method receive same arguments as the `broadcast` method.
 
-  ## Reserved event senders
+  ## Sending data to server
+
+- **Named event** 
+
+This is pushing a custom event to the server
+
+```javascript
+dropper.send('pizza', 'this is a pizza')
+```
+
+- **No named event** 
+
+This is pushing a no named event to the server
+
+```javascript
+dropper.send('this is a pizza')
+```
+
+
+### Listening for server events
+- **Named event** 
+
+This is listening a custom event from the server
+
+```javascript
+dropper.on('pizza', data => {
+  ...foo
+})
+```
+
+- **No named event** 
+
+This is listening a no named event from the server
+
+```javascript
+dropper.on('message', data => {
+  ...foo
+})
+```
+
+## Reserved event senders
 
 This is a list with the events you shouldn't play with:
 

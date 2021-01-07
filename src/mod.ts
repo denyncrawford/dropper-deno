@@ -55,6 +55,8 @@ class Dropper extends EventEmitter {
           if (hasJsonStructure(ev)) {
             let { evt, data } = JSON.parse(ev);
             this.emit(evt, data)
+          } else {
+            this.emit('message', ev)
           }
         } else if (ev instanceof Uint8Array) {
           this.emit("_binary_", ev);
@@ -144,6 +146,8 @@ class Dropper extends EventEmitter {
               if (hasJsonStructure(ev)) {
                 let { evt, data } = JSON.parse(ev);
                 this.emit(evt, data)
+              } else {
+                this.emit('message', ev)
               }
              })
              // Broadcast
