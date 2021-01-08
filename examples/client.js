@@ -1,6 +1,6 @@
 import Dropper from "../src/mod.ts";
 
-const client = new Dropper("ws://localhost:8080"); // Connect
+const client = new Dropper(); // Connect
 
 client.on("_all_", (data) => { // Catch all events
   console.log(data);
@@ -21,3 +21,7 @@ client.on("crawford", data => { // Catch custom event
 client.on("close", (code, reason) => { //Catch close
   console.log("Disconnected:", code, "|", reason);
 });
+
+client.on("disconnection", uuid => {
+  console.log(uuid);
+})

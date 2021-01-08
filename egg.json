@@ -5,13 +5,16 @@
   "description": "Custom event-based websockets library for deno 🦕",
   "homepage": "https://dropper.crawford.ml",
   "repository": "https://github.com/denyncrawford/dropper-deno",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "files": [
     "LICENSE.md",
     "README.md",
     "./src/*",
     "./examples/*",
-    "deps.ts"
+    "./examples/chat/*",
+    "deps.ts",
+    "./dist/*",
+    "./dist/clients/*"
   ],
   "checkFormat": false,
   "checkTests": false,

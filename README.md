@@ -11,20 +11,32 @@ Since Dropper is a WebSocket solution for delivering messages between servers an
 
 ## Importing
 
-**Client:**
+**Deno client:**
+
+You can import the client directly on your Deno app.
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.6.0/src/mod.ts';
+import Dropper from 'https://deno.land/x/dropper@1.7.0/src/mod.ts';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.6.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.7.0/src/mod.ts'
+```
+
+**Browser client**
+
+You can import this client on the browser in a module script.
+
+```ts
+import Dropper from 'https://deno.land/x/dropper@1.7.0/dist/clients/dropper.browser.js';
+//or
+import Dropper from 'https://x.nest.land/dropper@1.7.0/dist/clients/dropper.browser.js'
 ```
 
 **Server:**
 
 ```ts
-import { Server } from 'https://deno.land/x/dropper@1.6.0/src/mod.ts';
+import { Server } from 'https://deno.land/x/dropper@1.7.0/src/mod.ts';
 //or
-import { Server } from 'https://x.nest.land/dropper@1.6.0/src/mod.ts'
+import { Server } from 'https://x.nest.land/dropper@1.7.0/src/mod.ts'
 ```
 
 ## Usage
@@ -53,23 +65,27 @@ dropper.on('thanks', data => {
 
 ```
 
-### Methods
+### API
 
-**The server has two methods**:
+**Methods**:
 
-  - `on` - Listen for the server events.
+  - `Dropper.on` - Listen for the server events.
 
     The `on` method receives two arguments:
 
       - `event` - The event name
       - `callback` - Callback function to get the new connected socket instance if the event is `connection` or the event data if the event is `any`. 
   
-  - `send` - Send global data to all connected sockets
+  - `Dropper.send` - Send global data to all connected sockets
     
     The `send` method receive two arguments.
 
       - Argument1: `event` | `data` - This argument changes to data if the data argument is not provided, by default it is the event name.
       - `data` (optional) - This is the data to be sent.
+
+**Properties**:
+
+  - Dropper.clients - List of all connected clients instances.
 
 ### Sending data to clients
 
@@ -192,9 +208,9 @@ dropper.on('pizza', function(data){
 dropper.on('close' => console.log('done'))
 ```
 
-### Methods
+### API
 
-**The client has four methods**:
+**Methods**:
 
 - `close` - Closes the connection.
 
@@ -221,7 +237,13 @@ dropper.on('close' => console.log('done'))
 
   The `send` method receive same arguments as the `broadcast` method.
 
-  ## Sending data to server
+  **Properties**:
+
+  - `Dropper.uuid` - The id of the client.
+  - `Dropper._socket` - This is the WebSocket instance itself.
+  - `Dropper.uri` - The WebSockets connection uri.
+
+## Sending data to server
 
 - **Named event** 
 
@@ -257,6 +279,27 @@ This is listening a no named event from the server
 
 ```javascript
 dropper.on('message', data => {
+  ...foo
+})
+```
+## Handling disconnections
+
+- **Handle own disconnection**
+
+To handle the socket disconnection you can use the `close` event. It only listen when the sockets disconnects itself.
+
+```javascript
+dropper.on('close', (code, reason) => {
+  ...foo
+})
+```
+
+- **Handle other peers disconnection**
+
+When a peer disconnects the server trigger the `disconnection` event that is useful for listening when other peers leave. It provides de uuid of the leaving socket.
+
+```javascript
+dropper.on('disconnection', uuid => {
   ...foo
 })
 ```

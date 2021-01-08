@@ -16,7 +16,7 @@ class Dropper extends EventEmitter {
   public readonly uri: string | null = null;
   constructor(arg: WebSocket | string) {
     super();
-    if (typeof arg === "string") {
+    if (typeof arg === "string" || typeof arg === 'undefined') {
       this.uri = arg;
       connectWebSocket(this.uri).then((socket:WebSocket) => {
         this._socket = socket;
@@ -124,6 +124,10 @@ class Dropper extends EventEmitter {
                   clearInterval(int);
                   this.emit("disconnection", 1001, 'Client is leaving', client)
                   this.clients.delete(uuid);
+                  this.clients.forEach(async (c) => {
+                    let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
+                    await c?._socket?.send(send_disconnection)
+                  })
                   client = null;
                 }, 1000);
              }
@@ -135,8 +139,12 @@ class Dropper extends EventEmitter {
              // Close
              client.on("close", (code, reason) => {
               clearInterval(int);
-               this.emit("disconnection", code, reason)
+               this.emit("disconnection", code, reason || 'Client is leaving', client)
                this.clients.delete(uuid);
+               this.clients.forEach(async (c) => {
+                let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
+                await c?._socket?.send(send_disconnection)
+               })
                client = null;
              });
              // Global Events
