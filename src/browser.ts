@@ -1,21 +1,23 @@
 import { websocketEvents } from 'https://raw.githubusercontent.com/denyncrawford/websocket-iterator/master/src/websocket-iterator.ts'
-import { hasOwnProperty } from 'https://deno.land/std@0.83.0/_util/has_own_property.ts'
 import { 
   hasJsonStructure,
   isArray
- } from '../helpers.ts'
+ } from './helpers.ts'
 import { 
   EventEmitter,
   v4
-} from '../../deps.ts'
+} from '../deps.ts'
 
 export default class Dropper extends EventEmitter {
   public readonly uuid: string = v4.generate();
   public _socket: WebSocket | null = null;
   public readonly uri: string | null = null;
-  constructor(arg: string) {
+  constructor(arg?: string, private options?: any) {
     super();
-    this.uri = arg;
+    this.options = Object.assign({
+      endpoint: '/dropper'
+     }, this.options)
+    this.uri = this.uri = arg ? arg + this.options.endpoint : 'ws://localhost:8080' + this.options.endpoint;
     connectWebSocket(this.uri).then((socket:WebSocket) => {
       this._socket = socket;
       this.init(this._socket);
@@ -54,30 +56,20 @@ export default class Dropper extends EventEmitter {
     this?._socket?.send(arr)
   }
 
-  private async init(socket: WebSocket): Promise<void> {    
+  private async init(socket: WebSocket): Promise<void> {
     this.emit("open");
-    for await (const { data: ev } of websocketEvents(socket)) {   
+    socket.onclose = (ev) => {
+      const { code, reason } = ev;
+      this.emit("close", code, reason);
+    }
+    for await (const  { data: ev  } of websocketEvents(socket)) {
       try {
-        if (typeof ev === "string" && !isWebSocketPingEvent(ev)) {
-          this.emit("_all_", ev);
-          if (hasJsonStructure(ev)) {
-            let { evt, data } = JSON.parse(ev);
-            this.emit(evt, data)
-          } else {
-            this.emit('message', ev)
-          }
-        } else if (ev instanceof Uint8Array) {
-          this.emit("_binary_", ev);
-        } else if (isWebSocketPingEvent(ev)) { 
-          const [, body] = ev;
-          this.pong(body)
-          this.emit("_ping_", body);
-        } else if (isWebSocketCloseEvent(ev)) {
-          const { code, reason } = ev;
-          this.emit("close", code, reason);
-        } else if (isWebSocketPongEvent(ev)) {
-          const [, body] = ev;
-          this.emit("_pong_", body);
+        this.emit("_all_", ev);
+        if (hasJsonStructure(ev)) {
+          let { evt, data } = JSON.parse(ev);
+          this.emit(evt, data)
+        } else {
+           this.emit('message', ev)
         }
       } catch (e) {
         this.emit("error", e);
@@ -89,36 +81,16 @@ export default class Dropper extends EventEmitter {
 
 // Utils
 
-function isWebSocketPongEvent(a: any) {
-  let newArr = typeof a === 'string' && isArray(a) ? JSON.parse(a).map( (e: string | object) => {
-    if (typeof e !== "object") return e
-    else return new Uint8Array(1)
-  }) : a;
-  return Array.isArray(newArr) && newArr[0] === "pong" && newArr[1] instanceof Uint8Array;
-}
-
-function isWebSocketPingEvent(a: any) {
-  let newArr = typeof a === 'string' && isArray(a) ? JSON.parse(a).map( (e: string | object) => {
-    if (typeof e !== "object") return e
-    else return new Uint8Array(1)
-  }) : a;
-  return Array.isArray(newArr) && newArr[0] === "ping" && newArr[1] instanceof Uint8Array;
-}
-
-function isWebSocketCloseEvent( a: any) {
-  return hasOwnProperty(a, "code");
-}
-
 function connectWebSocket(endpoint: string | undefined): Promise<WebSocket> {
   return new Promise(function(resolve, reject) {
-    const url = endpoint ? new URL(endpoint) : new URL('ws://localhost:8080');
-    const { hostname, protocol, port } = url
+    const url = endpoint ? new URL(endpoint+'/dropper') : new URL('ws://localhost:8080/dropper');
+    const { hostname, protocol, port, pathname } = url
     let p: string;
     if (protocol === 'http:') p = 'ws://'
     else if (protocol === 'https:') p = 'wss://'
     else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//'
     else throw new Error("ws: unsupported protocol: " + url.protocol);
-    const uri = `${p+hostname}:${port}`
+    const uri = `${p+hostname}:${port + pathname}`
     let socket = new WebSocket(uri);
     socket.onopen = () => {          
       resolve(socket);

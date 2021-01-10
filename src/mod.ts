@@ -1,51 +1,84 @@
-import { hasJsonStructure, connectWebSocket } from './helpers.ts'
-import { WebSocket } from "https://deno.land/std@0.83.0/ws/mod.ts";
+import { 
+  hasJsonStructure, 
+  connectWebSocket,
+  isWebSocketCloseEvent,
+  isWebSocketPingEvent,
+  isWebSocketPongEvent
+} from './helpers.ts'
 import { 
   EventEmitter, 
   v4, 
   serve,
+  ServerRequest,
   acceptWebSocket,
-  isWebSocketCloseEvent,
-  isWebSocketPingEvent,
-  isWebSocketPongEvent,
+  websocketEvents
 } from '../deps.ts'
 
 class Dropper extends EventEmitter {
   public readonly uuid: string = v4.generate();
   public _socket: WebSocket | null = null;
   public readonly uri: string | null = null;
-  constructor(arg: WebSocket | string) {
+  constructor(arg: WebSocket | string, private options?: any) {
     super();
+    this.options = Object.assign({
+      endpoint: '/dropper'
+     }, this.options)
     if (typeof arg === "string" || typeof arg === 'undefined') {
-      this.uri = arg;
+      this.uri = arg ? arg + this.options.endpoint : 'ws://localhost:8080' + this.options.endpoint;
       connectWebSocket(this.uri).then((socket:WebSocket) => {
         this._socket = socket;
-        this.init(this._socket);
+        this.client(this._socket);
       }).catch((err:any) => {
         this.emit("error", err);
       });
     } else {
       this._socket = arg;
-      this.uri = arg.conn.remoteAddr.transport;
-      this.init(this._socket);
+      this.uri = arg.url;
+      this.serveClient(this._socket);
     }
   }
+  
   public async send(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {
     let data_push: string = data ? JSON.stringify({ evt, data }) : JSON.stringify(evt);    
     if (this._socket !== null) await this._socket.send(data_push)
   }
+
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
     if (this._socket !== null) {
       let data_push: string = data ? JSON.stringify({ evt, data, client: this.uuid}) : JSON.stringify({ evt: '_all_', data: evt, client: this.uuid});
       if (this._socket !== null) await this.emit("_broadcast_", data_push)
     }
   }
+
   public async close(code: number = 1005, reason: string = ""): Promise<void> {
     if (this._socket !== null) {
-      return await this._socket.close(code, reason).catch(console.error);
+      return await this._socket.close(code, reason)
     }
   }
-  private async init(socket: WebSocket): Promise<void> {
+
+  private async client(socket: WebSocket): Promise<void> {
+    this.emit("open");
+    socket.onclose = (ev) => {
+      const { code, reason } = ev;
+      this.emit("close", code, reason);
+    }
+    for await (const  { data: ev  } of websocketEvents(socket)) {
+      try {
+        this.emit("_all_", ev);
+        if (hasJsonStructure(ev)) {
+          let { evt, data } = JSON.parse(ev);
+          this.emit(evt, data)
+        } else {
+           this.emit('message', ev)
+        }
+      } catch (e) {
+        this.emit("error", e);
+        await this.close(1000);
+      }
+    }
+  }
+
+  private async serveClient(socket: any): Promise<void> {
     this.emit("open");
     for await (const ev of socket) {
       try {
@@ -80,15 +113,20 @@ class Dropper extends EventEmitter {
  class Server extends EventEmitter {
    private willClose: boolean = false;
    public clients: Map<string, Dropper> = new Map();
-   constructor(
-     public readonly host: string = "localhost",
-     public readonly port: number = 8080,
-     public readonly interval: number = 3000
-   ) {
+   constructor(public options?: any) {
      super();
-     this.init();
+     this.options = Object.assign({
+      host: 'localhost',
+      port: 8080,
+      interval: 3000,
+      serve: true,
+      endpoint: '/dropper'
+     }, this.options)
+     if (this.options?.serve) this.serve();
    }
+
    // Global sending
+
    public async send(evt: string | Uint8Array | object, data ? : string | Uint8Array | object): Promise < void > {
      let data_push: string = data ? JSON.stringify({
        evt,
@@ -98,83 +136,68 @@ class Dropper extends EventEmitter {
        if (client._socket !== null) await client._socket.send(data_push)
      })
    }
-   private async init(): Promise < void > {
-     for await (const req of serve(`${this.host}:${this.port}`)) {
-       if (this.willClose) break;
-       const {
-         headers,
-         conn
-       } = req;
-       acceptWebSocket({
-           conn,
-           headers,
-           bufReader: req.r,
-           bufWriter: req.w,
-         })
-         .then(
-           async (socket: WebSocket): Promise < void > => {
-             let client: Dropper | null = new Dropper(socket);
-             const uuid = client.uuid;
-             this.clients.set(client.uuid, client);
-             // Connection checker
-             let tm: any;
-             const ping = () => {
-                if (!client?._socket?.isClosed) client?._socket?.ping()
-                tm = setTimeout( () => {
-                  clearInterval(int);
-                  this.emit("disconnection", 1001, 'Client is leaving', client)
-                  this.clients.delete(uuid);
-                  this.clients.forEach(async (c) => {
-                    let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
-                    await c?._socket?.send(send_disconnection)
-                  })
-                  client = null;
-                }, 1000);
-             }
-             // interval initialization
-             let int = setInterval(ping, this.interval);
-             client.on('_pong_', () => {               
-              clearTimeout(tm);
-             })
-             // Close
-             client.on("close", (code, reason) => {
-              clearInterval(int);
-               this.emit("disconnection", code, reason || 'Client is leaving', client)
-               this.clients.delete(uuid);
-               this.clients.forEach(async (c) => {
-                let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
-                await c?._socket?.send(send_disconnection)
-               })
-               client = null;
-             });
-             // Global Events
-             client.on('_all_', ev => {
-              this.emit("_all_", ev);
-              if (hasJsonStructure(ev)) {
-                let { evt, data } = JSON.parse(ev);
-                this.emit(evt, data)
-              } else {
-                this.emit('message', ev)
-              }
-             })
-             // Broadcast
-             client.on("_broadcast_", async data => {
-               let data_send = JSON.parse(data)
-               this.clients.forEach(async (c) => {
-                 if (data_send.client !== c.uuid) {
-                   await c?._socket?.send(data)
-                 }
-               })
-             })
-             const allowConnect = this.emit("connection", client);
-             if (allowConnect !== undefined && !allowConnect) {
-               await client.close(1002, "Access Denied");
-             }
+
+   public async handle(req: ServerRequest): Promise <void> {
+    const {
+      headers,
+      conn
+    } = req;
+    acceptWebSocket({
+        conn,
+        headers,
+        bufReader: req.r,
+        bufWriter: req.w,
+      })
+      .then(
+        async (socket: any): Promise < void > => {
+          let client: Dropper | null = new Dropper(socket);
+          const uuid = client.uuid;
+          this.clients.set(client.uuid, client);
+          client.on("close", (code, reason) => {
+          //  clearInterval(int);
+            this.emit("disconnection", code, reason || 'Client is leaving', client)
+            this.clients.delete(uuid);
+            this.clients.forEach(async (c) => {
+             let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
+             await c?._socket?.send(send_disconnection)
+            })
+            client = null;
+          });
+          // Global Events
+          client.on('_all_', ev => {
+           this.emit("_all_", ev);
+           if (hasJsonStructure(ev)) {
+             let { evt, data } = JSON.parse(ev);
+             this.emit(evt, data)
+           } else {
+             this.emit('message', ev)
            }
-         )
-         .catch((err: Error): void => {
-           this.emit("error", err);
-         });
+          })
+          // Broadcast
+          client.on("_broadcast_", async data => {
+            let data_send = JSON.parse(data)
+            this.clients.forEach(async (c) => {
+              if (data_send.client !== c.uuid) {
+                await c?._socket?.send(data)
+              }
+            })
+          })
+          const allowConnect = this.emit("connection", client);
+          if (allowConnect !== undefined && !allowConnect) {
+            await client.close(1002, "Access Denied");
+          }
+        }
+      )
+      .catch((err: Error): void => {
+        this.emit("error", err);
+      });
+   }
+
+   private async serve(): Promise < void > {
+     const server = serve(`${this.options?.host}:${this.options?.port + this.options?.endpoint}`);
+     for await (const req of server) {
+      if (this.willClose) break;
+      this.handle(req)
      }
    }
  }

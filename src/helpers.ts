@@ -1,11 +1,4 @@
-import { 
-  createWebSocket, 
-  handshake,
-  BufReader,
-  BufWriter
-} from '../deps.ts'
-import { WebSocket } from "https://deno.land/std@0.83.0/ws/mod.ts";
-
+import { hasOwnProperty } from 'https://deno.land/std@0.83.0/_util/has_own_property.ts'
 export function hasJsonStructure (str: string): Boolean {
   if (typeof str !== 'string') return false;
   try {
@@ -29,39 +22,42 @@ export function isArray (str: string) {
   }
 }
 
-function createMask(): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(4));
+export function connectWebSocket(endpoint: string): Promise<WebSocket> {
+  return new Promise(function(resolve, reject) {
+    const url = new URL(endpoint)
+    const { hostname, protocol, port, pathname } = url
+    let p: string;
+    if (protocol === 'http:') p = 'ws://'
+    else if (protocol === 'https:') p = 'wss://'
+    else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//'
+    else throw new Error("ws: unsupported protocol: " + url.protocol);
+    const uri = `${p+hostname}:${port + pathname}`    
+    let socket = new WebSocket(uri);
+    socket.onopen = () => {          
+      resolve(socket);
+    };
+    socket.onerror = (err:any) => {
+      reject(err);
+    };
+  });
 }
 
-export async function connectWebSocket(
-  endpoint: string | null,
-  headers: Headers = new Headers(),
-): Promise<WebSocket> {
-  const url = endpoint ? new URL(endpoint) : new URL('ws://localhost:8080');
-  const { protocol, hostname } = url;
-  let conn: Deno.Conn;
-  if (protocol === "http:" || protocol === "ws:") {
-    const port = parseInt(url.port || "8080");
-    conn = await Deno.connect({ hostname, port });
-  } else if (protocol === "https:" || protocol === "wss:") {
-    const port = parseInt(url.port || "443");
-    conn = await Deno.connectTls({ hostname, port });
-  } else {
-    throw new Error("ws: unsupported protocol: " + protocol);
-  }
-  const bufWriter = new BufWriter(conn);
-  const bufReader = new BufReader(conn);
-  try {
-    await handshake(url, headers, bufReader, bufWriter);
-  } catch (err) {
-    conn.close();
-    throw err;
-  }
-  const sock:WebSocket = createWebSocket({
-    conn,
-    bufWriter,
-    bufReader,
-    mask: createMask(),
-  });  
-  return sock
+export function isWebSocketPongEvent(a: any) {
+  let newArr = typeof a === 'string' && isArray(a) ? JSON.parse(a).map( (e: string | object) => {
+    if (typeof e !== "object") return e
+    else return new Uint8Array(1)
+  }) : a;
+  return Array.isArray(newArr) && newArr[0] === "pong" && newArr[1] instanceof Uint8Array;
+}
+
+export function isWebSocketPingEvent(a: any) {
+  let newArr = typeof a === 'string' && isArray(a) ? JSON.parse(a).map( (e: string | object) => {
+    if (typeof e !== "object") return e
+    else return new Uint8Array(1)
+  }) : a;
+  return Array.isArray(newArr) && newArr[0] === "ping" && newArr[1] instanceof Uint8Array;
+}
+
+export function isWebSocketCloseEvent( a: any) {
+  return hasOwnProperty(a, "code");
 }

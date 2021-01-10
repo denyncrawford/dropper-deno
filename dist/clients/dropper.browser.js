@@ -666,14 +666,14 @@ function isWebSocketCloseEvent(a) {
 }
 function connectWebSocket(endpoint) {
     return new Promise(function(resolve, reject) {
-        const url = endpoint ? new URL(endpoint) : new URL('ws://localhost:8080');
-        const { hostname , protocol , port  } = url;
+        const url = endpoint ? new URL(endpoint + '/dropper') : new URL('ws://localhost:8080/dropper');
+        const { hostname , protocol , port , pathname  } = url;
         let p;
         if (protocol === 'http:') p = 'ws://';
         else if (protocol === 'https:') p = 'wss://';
         else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//';
         else throw new Error("ws: unsupported protocol: " + url.protocol);
-        const uri = `${p + hostname}:${port}`;
+        const uri = `${p + hostname}:${port + pathname}`;
         let socket = new WebSocket(uri);
         socket.onopen = ()=>{
             resolve(socket);
