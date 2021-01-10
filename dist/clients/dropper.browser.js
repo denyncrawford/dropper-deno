@@ -1,3 +1,23 @@
+function hasJsonStructure(str) {
+    if (typeof str !== 'string') return false;
+    try {
+        const result = JSON.parse(str);
+        const type = Object.prototype.toString.call(result);
+        return type === '[object Object]' || type === '[object Array]';
+    } catch (err) {
+        return false;
+    }
+}
+function isArray(str) {
+    if (typeof str !== 'string') return false;
+    try {
+        const result = JSON.parse(str);
+        const type = Object.prototype.toString.call(result);
+        return type === '[object Array]';
+    } catch (err) {
+        return false;
+    }
+}
 function thenableReject(error) {
     return {
         then: (resolve, reject)=>reject(error)
@@ -42,15 +62,15 @@ function websocketEvents(websocket, { emitOpen =false  } = {
         );
     };
     const initSocket = ()=>{
-        websocket.addEventListener("close", close);
-        websocket.addEventListener("error", pushError);
-        websocket.addEventListener("message", pushEvent);
+        websocket.onclose = close;
+        websocket.onerror = pushError;
+        websocket.onmessage = pushEvent;
     };
     if (websocket.readyState === WebSocket.CONNECTING) {
-        websocket.addEventListener("open", (event)=>{
+        websocket.onopen = (event)=>{
             if (emitOpen) pushEvent(event);
             initSocket();
-        });
+        };
     } else {
         initSocket();
     }
@@ -70,35 +90,6 @@ function websocketEvents(websocket, { emitOpen =false  } = {
         }
     };
     return iterator;
-}
-function hasOwnProperty(obj, v) {
-    if (obj == null) {
-        return false;
-    }
-    return Object.prototype.hasOwnProperty.call(obj, v);
-}
-function hasJsonStructure(str) {
-    if (typeof str !== 'string') return false;
-    try {
-        const result = JSON.parse(str);
-        const type = Object.prototype.toString.call(result);
-        return type === '[object Object]' || type === '[object Array]';
-    } catch (err) {
-        return false;
-    }
-}
-function isArray(str) {
-    if (typeof str !== 'string') return false;
-    try {
-        const result = JSON.parse(str);
-        const type = Object.prototype.toString.call(result);
-        return type === '[object Array]';
-    } catch (err) {
-        return false;
-    }
-}
-function createMask() {
-    return crypto.getRandomValues(new Uint8Array(4));
 }
 const DEFAULT_BUFFER_SIZE = 32 * 1024;
 async function readShort(buf) {
@@ -647,23 +638,6 @@ function createIterResult(value, done) {
     };
 }
 let defaultMaxListeners = 10;
-function isWebSocketPongEvent(a) {
-    let newArr = typeof a === 'string' && isArray(a) ? JSON.parse(a).map((e)=>{
-        if (typeof e !== "object") return e;
-        else return new Uint8Array(1);
-    }) : a;
-    return Array.isArray(newArr) && newArr[0] === "pong" && newArr[1] instanceof Uint8Array;
-}
-function isWebSocketPingEvent(a) {
-    let newArr = typeof a === 'string' && isArray(a) ? JSON.parse(a).map((e)=>{
-        if (typeof e !== "object") return e;
-        else return new Uint8Array(1);
-    }) : a;
-    return Array.isArray(newArr) && newArr[0] === "ping" && newArr[1] instanceof Uint8Array;
-}
-function isWebSocketCloseEvent(a) {
-    return hasOwnProperty(a, "code");
-}
 function connectWebSocket(endpoint) {
     return new Promise(function(resolve, reject) {
         const url = endpoint ? new URL(endpoint + '/dropper') : new URL('ws://localhost:8080/dropper');
@@ -682,6 +656,12 @@ function connectWebSocket(endpoint) {
             reject(err);
         };
     });
+}
+function hasOwnProperty(obj, v) {
+    if (obj == null) {
+        return false;
+    }
+    return Object.prototype.hasOwnProperty.call(obj, v);
 }
 function _parseAddrFromStr(addr) {
     let url;
@@ -1695,47 +1675,6 @@ function createSecAccept(nonce) {
     const bytes = sha1.digest();
     return btoa(String.fromCharCode(...bytes));
 }
-async function handshake(url, headers, bufReader, bufWriter) {
-    const { hostname , pathname , search  } = url;
-    const key = createSecKey();
-    if (!headers.has("host")) {
-        headers.set("host", hostname);
-    }
-    headers.set("upgrade", "websocket");
-    headers.set("connection", "upgrade");
-    headers.set("sec-websocket-key", key);
-    headers.set("sec-websocket-version", "13");
-    let headerStr = `GET ${pathname}${search} HTTP/1.1\r\n`;
-    for (const [key1, value] of headers){
-        headerStr += `${key1}: ${value}\r\n`;
-    }
-    headerStr += "\r\n";
-    await bufWriter.write(encode(headerStr));
-    await bufWriter.flush();
-    const tpReader = new TextProtoReader(bufReader);
-    const statusLine = await tpReader.readLine();
-    if (statusLine === null) {
-        throw new Deno.errors.UnexpectedEof();
-    }
-    const m = statusLine.match(/^(?<version>\S+) (?<statusCode>\S+) /);
-    if (!m) {
-        throw new Error("ws: invalid status line: " + statusLine);
-    }
-    assert1(m.groups);
-    const { version , statusCode  } = m.groups;
-    if (version !== "HTTP/1.1" || statusCode !== "101") {
-        throw new Error(`ws: server didn't accept handshake: ` + `version=${version}, statusCode=${statusCode}`);
-    }
-    const responseHeaders = await tpReader.readMIMEHeader();
-    if (responseHeaders === null) {
-        throw new Deno.errors.UnexpectedEof();
-    }
-    const expectedSecAccept = createSecAccept(key);
-    const secAccept = responseHeaders.get("sec-websocket-accept");
-    if (secAccept !== expectedSecAccept) {
-        throw new Error(`ws: unexpected sec-websocket-accept header: ` + `expected=${expectedSecAccept}, actual=${secAccept}`);
-    }
-}
 class BufReader {
     r = 0;
     w = 0;
@@ -2391,9 +2330,13 @@ export default class Dropper extends EventEmitter {
     uuid = mod.generate();
     _socket = null;
     uri = null;
-    constructor(arg){
+    constructor(arg, options){
         super();
-        this.uri = arg;
+        this.options = options;
+        this.options = Object.assign({
+            endpoint: '/dropper'
+        }, this.options);
+        this.uri = this.uri = arg ? arg + this.options.endpoint : 'ws://localhost:8080' + this.options.endpoint;
         connectWebSocket(this.uri).then((socket)=>{
             this._socket = socket;
             this.init(this._socket);
@@ -2448,28 +2391,18 @@ export default class Dropper extends EventEmitter {
     }
     async init(socket) {
         this.emit("open");
+        socket.onclose = (ev)=>{
+            const { code: code2 , reason  } = ev;
+            this.emit("close", code2, reason);
+        };
         for await (const { data: ev  } of websocketEvents(socket)){
             try {
-                if (typeof ev === "string" && !isWebSocketPingEvent(ev)) {
-                    this.emit("_all_", ev);
-                    if (hasJsonStructure(ev)) {
-                        let { evt , data  } = JSON.parse(ev);
-                        this.emit(evt, data);
-                    } else {
-                        this.emit('message', ev);
-                    }
-                } else if (ev instanceof Uint8Array) {
-                    this.emit("_binary_", ev);
-                } else if (isWebSocketPingEvent(ev)) {
-                    const [, body] = ev;
-                    this.pong(body);
-                    this.emit("_ping_", body);
-                } else if (isWebSocketCloseEvent(ev)) {
-                    const { code: code2 , reason  } = ev;
-                    this.emit("close", code2, reason);
-                } else if (isWebSocketPongEvent(ev)) {
-                    const [, body] = ev;
-                    this.emit("_pong_", body);
+                this.emit("_all_", ev);
+                if (hasJsonStructure(ev)) {
+                    let { evt , data  } = JSON.parse(ev);
+                    this.emit(evt, data);
+                } else {
+                    this.emit('message', ev);
                 }
             } catch (e) {
                 this.emit("error", e);
@@ -3003,9 +2936,6 @@ class WebSocketImpl {
         }
     }
 }
-function createWebSocket(params) {
-    return new WebSocketImpl(params);
-}
 class Server {
     closing = false;
     connections = [];
@@ -3103,9 +3033,9 @@ function serve(addr) {
     const listener1 = Deno.listen(addr);
     return new Server(listener1);
 }
-function serveTLS(options) {
+function serveTLS(options1) {
     const tlsOptions = {
-        ...options,
+        ...options1,
         transport: "tcp"
     };
     const listener1 = Deno.listenTls(tlsOptions);

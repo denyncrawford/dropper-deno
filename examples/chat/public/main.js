@@ -1,4 +1,4 @@
-import Dropper from 'https://raw.githubusercontent.com/denyncrawford/dropper-deno/main/dist/clients/dropper.browser.js'
+import Dropper from 'https://raw.githack.com/denyncrawford/dropper-deno/main/dist/clients/dropper.browser.js'
 
 const dropper = new Dropper()
 
@@ -9,6 +9,10 @@ dropper.on("open", () => {
     name: 'denyncrawford'
   })
 });
+
+dropper.on('_all_', ev => {
+  console.log(ev);
+})
 
 dropper.on('handshake', () => {
   dropper.send('thanks', "From client");
