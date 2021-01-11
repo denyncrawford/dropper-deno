@@ -11,14 +11,22 @@ Since Dropper is a WebSocket solution for delivering messages between servers an
 
 ## Importing
 
+**Server:**
+
+```ts
+import { Server } from 'https://deno.land/x/dropper@1.8.0/src/mod.ts';
+//or
+import { Server } from 'https://x.nest.land/dropper@1.8.0/src/mod.ts'
+```
+
 **Deno client:**
 
 You can import the client directly on your Deno app.
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.7.0/src/mod.ts';
+import Dropper from 'https://deno.land/x/dropper@1.8.0/src/mod.ts';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.7.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.8.0/src/mod.ts'
 ```
 
 **Browser client**
@@ -26,17 +34,9 @@ import Dropper from 'https://x.nest.land/dropper@1.7.0/src/mod.ts'
 You can import this client on the browser in a module script.
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.7.0/dist/clients/dropper.browser.js';
+import Dropper from 'https://deno.land/x/dropper@1.8.0/dist/clients/dropper.browser.js';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.7.0/dist/clients/dropper.browser.js'
-```
-
-**Server:**
-
-```ts
-import { Server } from 'https://deno.land/x/dropper@1.7.0/src/mod.ts';
-//or
-import { Server } from 'https://x.nest.land/dropper@1.7.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.8.0/dist/clients/dropper.browser.js'
 ```
 
 ## Usage
@@ -47,8 +47,17 @@ By default, it exports two instances of WebSocket. The API is very similar to th
 
 The server waits for socket connections using the global event `connection`. This event gets the new connected socket on its callback. This socket represents a client so the API is the same as in the client side.
 
+### Stand alone server
+
+Dropper is stand alone by default, which means tha you don't need to provide an http server, when you create a dropper it serves by default on port 8080. 
+
+> This is useful whe you are creating an app without a server side.
+
 ```javascript
-const dropper = new Server(); // Creates a default server on port 8080
+
+const options;
+
+const dropper = new Server(options); // Creates a default server on port 8080
 
 dropper.on('connection', socket => { // W
   socket.send('pizza', 'I sent you a pizza!')
@@ -64,6 +73,74 @@ dropper.on('thanks', data => {
 })
 
 ```
+
+### Middleware server
+
+You can also use Dropper with a server/framework setup since it handles each request separately with the method `Dropper.handle(req)`
+
+- **Using a framework like opine**:
+
+```javascript
+import { opine } from 'https://opinesource/mod.ts'
+const app = opine();
+import { Server as Dropper } from '...'
+
+const dropper = new Dropper({
+  serve: false // Important
+})
+
+app.use('/dropper' (req) => dropper.handle(req)); // Don't respond or call next, just use the request.
+
+app.get('/', (req, res) => {
+  //...foo
+})
+
+dropper.on('connection', socket => {
+  ..foo
+})
+
+app.listen(3000)
+
+``` 
+
+- **Using the std http server**:
+
+```javascript
+import { serve } from 'https://serverhttpsouce/mod.ts'
+import { Server as Dropper } from '...'
+
+const server = serve('localhost:3000')
+
+const dropper = new Dropper({
+  serve: false // Important
+})
+
+dropper.on('connection', socket => {
+  ..foo
+})
+
+for await (const req of server) {
+  if (req.url === '/dropper') {
+    dropper.handle(req);
+  } else {
+    // return static content, etc
+  }
+}
+
+```
+
+> Please note that we use the `/dropper` endpoint on both of the examples. This is because we don't want to touch any usable endpoint, you can use whatever you want as endpoint, but you have to provide it in the Dropper **client** config object which is by default `/dropper`.
+
+### Options (optional) 
+
+- `host`: The host you want to use if the serve is true. 
+  - Default: 'localhost',
+- `port`: The host you want to use if the serve is true
+  - Default: 8080,
+- `interval`: The ping interval in ms.
+  - Default: 3000
+- `serve`: Set false if you don't want to serve Dropper (stand alone)
+  - Default: true
 
 ### API
 
@@ -83,9 +160,15 @@ dropper.on('thanks', data => {
       - Argument1: `event` | `data` - This argument changes to data if the data argument is not provided, by default it is the event name.
       - `data` (optional) - This is the data to be sent.
 
+  - `Dropper.handle` - Handles the request to accept WebSockets
+
+    The `handle` method receive one arguments.
+
+      - `request` - This is a deno std http request object of the type `ServerRequest`.
+
 **Properties**:
 
-  - Dropper.clients - List of all connected clients instances.
+  - `Dropper.clients` - List of all connected clients instances.
 
 ### Sending data to clients
 
@@ -208,6 +291,11 @@ dropper.on('pizza', function(data){
 dropper.on('close' => console.log('done'))
 ```
 
+### Options (optional)
+
+- `endpoint` - This is the endpoint that the server uses to handle wbsockets.
+  - Default: `/dropper`
+
 ### API
 
 **Methods**:
@@ -328,7 +416,7 @@ By now, you can find detailed code in the examples folder.
 - Channels support
 - ✔️ Rename the `message` event to `_all_`
 - Auto reconnect
-- Improve documentation
+- ✔️ Improve documentation
 - Website
 - ✔️ Prevent using internal events
 - ✔️ Handle forced client disconnection
