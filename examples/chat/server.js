@@ -11,6 +11,7 @@ const dropper = new Dropper({
 app.use('/dropper', (req) => {
   dropper.handle(req);
 })
+
 app.use(serveStatic(resolve('./public')));
 
 app.get("/", function(req, res) {

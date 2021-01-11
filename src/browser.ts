@@ -1,11 +1,11 @@
-import { websocketEvents } from 'https://raw.githubusercontent.com/denyncrawford/websocket-iterator/master/src/websocket-iterator.ts'
 import { 
   hasJsonStructure,
   connectWebSocket
  } from './helpers.ts'
 import { 
   EventEmitter,
-  v4
+  v4,
+  websocketEvents
 } from '../deps.ts'
 
 export default class Dropper extends EventEmitter {
@@ -26,6 +26,9 @@ export default class Dropper extends EventEmitter {
       this.emit("error", err);
     });
   }
+
+  // Client API
+
   public async send(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {
     let data_push: string = data ? JSON.stringify({ evt, data }) : JSON.stringify(evt);    
     if (this._socket !== null) this._socket.send(data_push)
@@ -42,19 +45,11 @@ export default class Dropper extends EventEmitter {
     }
   }
 
-  public async ping(data: number) {
-    let ui: Uint8Array = new Uint8Array(data) || new Uint8Array(1)
-    let arr:any = ['ping', ui]
-    arr = JSON.stringify(arr)
-    this?._socket?.send(arr)
+  public async ping(data?: string) {
+    this?._socket?.send(JSON.stringify({ evt: '_ping_', data}))
   }
 
-  public async pong(data:any) {
-    const [, body] = data
-    let arr:any = ['pong', data]
-    arr = JSON.stringify(arr)
-    this?._socket?.send(arr)
-  }
+  // Client side handler
 
   private async init(socket: WebSocket): Promise<void> {
     this.emit("open");
@@ -64,11 +59,13 @@ export default class Dropper extends EventEmitter {
     }
     for await (const  { data: ev  } of websocketEvents(socket)) {
       try {
-        this.emit("_all_", ev);
         if (hasJsonStructure(ev)) {
           let { evt, data } = JSON.parse(ev);
+          if (evt == '_ping_') this._socket?.send(JSON.stringify({ evt: '_pong_', data}))
+          if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);
           this.emit(evt, data)
         } else {
+           this.emit("_all_", ev);
            this.emit('message', ev)
         }
       } catch (e) {

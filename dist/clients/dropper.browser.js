@@ -18,6 +18,25 @@ function isArray(str) {
         return false;
     }
 }
+function connectWebSocket(endpoint) {
+    return new Promise(function(resolve, reject) {
+        const url = new URL(endpoint);
+        const { hostname , protocol , port , pathname  } = url;
+        let p;
+        if (protocol === 'http:') p = 'ws://';
+        else if (protocol === 'https:') p = 'wss://';
+        else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//';
+        else throw new Error("ws: unsupported protocol: " + url.protocol);
+        const uri = `${p + hostname}:${port + pathname}`;
+        let socket = new WebSocket(uri);
+        socket.onopen = ()=>{
+            resolve(socket);
+        };
+        socket.onerror = (err)=>{
+            reject(err);
+        };
+    });
+}
 function thenableReject(error) {
     return {
         then: (resolve, reject)=>reject(error)
@@ -257,324 +276,6 @@ async function* readStringDelim(reader, delim) {
     }
 }
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
-const noColor = globalThis.Deno?.noColor ?? true;
-let enabled = !noColor;
-function code1(open, close) {
-    return {
-        open: `\x1b[${open.join(";")}m`,
-        close: `\x1b[${close}m`,
-        regexp: new RegExp(`\\x1b\\[${close}m`, "g")
-    };
-}
-function run(str, code1) {
-    return enabled ? `${code1.open}${str.replace(code1.regexp, code1.open)}${code1.close}` : str;
-}
-function bold(str) {
-    return run(str, code1([
-        1
-    ], 22));
-}
-function red(str) {
-    return run(str, code1([
-        31
-    ], 39));
-}
-function green(str) {
-    return run(str, code1([
-        32
-    ], 39));
-}
-function white(str) {
-    return run(str, code1([
-        37
-    ], 39));
-}
-function brightBlack(str) {
-    return run(str, code1([
-        90
-    ], 39));
-}
-function clampAndTruncate(n, max = 255, min = 0) {
-    return Math.trunc(Math.max(Math.min(n, max), min));
-}
-const ANSI_PATTERN = new RegExp([
-    "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
-    "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))", 
-].join("|"), "g");
-function stripColor(string) {
-    return string.replace(ANSI_PATTERN, "");
-}
-var DiffType;
-(function(DiffType1) {
-    DiffType1["removed"] = "removed";
-    DiffType1["common"] = "common";
-    DiffType1["added"] = "added";
-})(DiffType || (DiffType = {
-}));
-function createCommon(A, B, reverse) {
-    const common = [];
-    if (A.length === 0 || B.length === 0) return [];
-    for(let i = 0; i < Math.min(A.length, B.length); i += 1){
-        if (A[reverse ? A.length - i - 1 : i] === B[reverse ? B.length - i - 1 : i]) {
-            common.push(A[reverse ? A.length - i - 1 : i]);
-        } else {
-            return common;
-        }
-    }
-    return common;
-}
-function diff(A, B) {
-    const prefixCommon = createCommon(A, B);
-    const suffixCommon = createCommon(A.slice(prefixCommon.length), B.slice(prefixCommon.length), true).reverse();
-    A = suffixCommon.length ? A.slice(prefixCommon.length, -suffixCommon.length) : A.slice(prefixCommon.length);
-    B = suffixCommon.length ? B.slice(prefixCommon.length, -suffixCommon.length) : B.slice(prefixCommon.length);
-    const swapped = B.length > A.length;
-    [A, B] = swapped ? [
-        B,
-        A
-    ] : [
-        A,
-        B
-    ];
-    const M = A.length;
-    const N = B.length;
-    if (!M && !N && !suffixCommon.length && !prefixCommon.length) return [];
-    if (!N) {
-        return [
-            ...prefixCommon.map((c)=>({
-                    type: DiffType.common,
-                    value: c
-                })
-            ),
-            ...A.map((a)=>({
-                    type: swapped ? DiffType.added : DiffType.removed,
-                    value: a
-                })
-            ),
-            ...suffixCommon.map((c)=>({
-                    type: DiffType.common,
-                    value: c
-                })
-            ), 
-        ];
-    }
-    const offset = N;
-    const delta = M - N;
-    const size = M + N + 1;
-    const fp = new Array(size).fill({
-        y: -1
-    });
-    const routes = new Uint32Array((M * N + size + 1) * 2);
-    const diffTypesPtrOffset = routes.length / 2;
-    let ptr = 0;
-    let p = -1;
-    function backTrace(A1, B1, current, swapped1) {
-        const M1 = A1.length;
-        const N1 = B1.length;
-        const result = [];
-        let a = M1 - 1;
-        let b = N1 - 1;
-        let j = routes[current.id];
-        let type = routes[current.id + diffTypesPtrOffset];
-        while(true){
-            if (!j && !type) break;
-            const prev = j;
-            if (type === 1) {
-                result.unshift({
-                    type: swapped1 ? DiffType.removed : DiffType.added,
-                    value: B1[b]
-                });
-                b -= 1;
-            } else if (type === 3) {
-                result.unshift({
-                    type: swapped1 ? DiffType.added : DiffType.removed,
-                    value: A1[a]
-                });
-                a -= 1;
-            } else {
-                result.unshift({
-                    type: DiffType.common,
-                    value: A1[a]
-                });
-                a -= 1;
-                b -= 1;
-            }
-            j = routes[j];
-            type = routes[j + diffTypesPtrOffset];
-        }
-        return result;
-    }
-    function createFP(slide, down, k, M1) {
-        if (slide && slide.y === -1 && down && down.y === -1) {
-            return {
-                y: 0,
-                id: 0
-            };
-        }
-        if (down && down.y === -1 || k === M1 || (slide && slide.y) > (down && down.y) + 1) {
-            const prev = slide.id;
-            ptr++;
-            routes[ptr] = prev;
-            routes[ptr + diffTypesPtrOffset] = 3;
-            return {
-                y: slide.y,
-                id: ptr
-            };
-        } else {
-            const prev = down.id;
-            ptr++;
-            routes[ptr] = prev;
-            routes[ptr + diffTypesPtrOffset] = 1;
-            return {
-                y: down.y + 1,
-                id: ptr
-            };
-        }
-    }
-    function snake(k, slide, down, _offset, A1, B1) {
-        const M1 = A1.length;
-        const N1 = B1.length;
-        if (k < -N1 || M1 < k) return {
-            y: -1,
-            id: -1
-        };
-        const fp1 = createFP(slide, down, k, M1);
-        while(fp1.y + k < M1 && fp1.y < N1 && A1[fp1.y + k] === B1[fp1.y]){
-            const prev = fp1.id;
-            ptr++;
-            fp1.id = ptr;
-            fp1.y += 1;
-            routes[ptr] = prev;
-            routes[ptr + diffTypesPtrOffset] = 2;
-        }
-        return fp1;
-    }
-    while(fp[delta + N].y < N){
-        p = p + 1;
-        for(let k = -p; k < delta; ++k){
-            fp[k + N] = snake(k, fp[k - 1 + N], fp[k + 1 + N], N, A, B);
-        }
-        for(let k1 = delta + p; k1 > delta; --k1){
-            fp[k1 + N] = snake(k1, fp[k1 - 1 + N], fp[k1 + 1 + N], N, A, B);
-        }
-        fp[delta + N] = snake(delta, fp[delta - 1 + N], fp[delta + 1 + N], N, A, B);
-    }
-    return [
-        ...prefixCommon.map((c)=>({
-                type: DiffType.common,
-                value: c
-            })
-        ),
-        ...backTrace(A, B, fp[delta + N], swapped),
-        ...suffixCommon.map((c)=>({
-                type: DiffType.common,
-                value: c
-            })
-        ), 
-    ];
-}
-const CAN_NOT_DISPLAY = "[Cannot display]";
-function _format(v) {
-    return globalThis.Deno ? Deno.inspect(v, {
-        depth: Infinity,
-        sorted: true,
-        trailingComma: true,
-        compact: false,
-        iterableLimit: Infinity
-    }) : `"${String(v).replace(/(?=["\\])/g, "\\")}"`;
-}
-function createColor(diffType) {
-    switch(diffType){
-        case DiffType.added:
-            return (s)=>green(bold(s))
-            ;
-        case DiffType.removed:
-            return (s)=>red(bold(s))
-            ;
-        default:
-            return white;
-    }
-}
-function createSign(diffType) {
-    switch(diffType){
-        case DiffType.added:
-            return "+   ";
-        case DiffType.removed:
-            return "-   ";
-        default:
-            return "    ";
-    }
-}
-function isKeyedCollection(x) {
-    return [
-        Symbol.iterator,
-        "size"
-    ].every((k)=>k in x
-    );
-}
-function equal(c, d) {
-    const seen = new Map();
-    return (function compare(a, b) {
-        if (a && b && (a instanceof RegExp && b instanceof RegExp || a instanceof URL && b instanceof URL)) {
-            return String(a) === String(b);
-        }
-        if (a instanceof Date && b instanceof Date) {
-            const aTime = a.getTime();
-            const bTime = b.getTime();
-            if (Number.isNaN(aTime) && Number.isNaN(bTime)) {
-                return true;
-            }
-            return a.getTime() === b.getTime();
-        }
-        if (Object.is(a, b)) {
-            return true;
-        }
-        if (a && typeof a === "object" && b && typeof b === "object") {
-            if (seen.get(a) === b) {
-                return true;
-            }
-            if (Object.keys(a || {
-            }).length !== Object.keys(b || {
-            }).length) {
-                return false;
-            }
-            if (isKeyedCollection(a) && isKeyedCollection(b)) {
-                if (a.size !== b.size) {
-                    return false;
-                }
-                let unmatchedEntries = a.size;
-                for (const [aKey, aValue] of a.entries()){
-                    for (const [bKey, bValue] of b.entries()){
-                        if (aKey === aValue && bKey === bValue && compare(aKey, bKey) || compare(aKey, bKey) && compare(aValue, bValue)) {
-                            unmatchedEntries--;
-                        }
-                    }
-                }
-                return unmatchedEntries === 0;
-            }
-            const merged = {
-                ...a,
-                ...b
-            };
-            for(const key in merged){
-                if (!compare(a && a[key], b && b[key])) {
-                    return false;
-                }
-            }
-            seen.set(a, b);
-            return true;
-        }
-        return false;
-    })(c, d);
-}
-function assert(expr, msg = "") {
-    if (!expr) {
-        throw new AssertionError(msg);
-    }
-}
-function fail(msg) {
-    assert(false, `Failed assertion${msg ? `: ${msg}` : "."}`);
-}
 function slowCases(enc) {
     switch(enc.length){
         case 4:
@@ -631,6 +332,11 @@ function validateIntegerRange(value, name, min = -2147483648, max = 2147483647) 
         throw new Error(`${name} must be >= ${min} && <= ${max}. Value was ${value}`);
     }
 }
+function assert(expr, msg = "") {
+    if (!expr) {
+        throw new DenoStdInternalError(msg);
+    }
+}
 function createIterResult(value, done) {
     return {
         value,
@@ -638,24 +344,283 @@ function createIterResult(value, done) {
     };
 }
 let defaultMaxListeners = 10;
-function connectWebSocket(endpoint) {
-    return new Promise(function(resolve, reject) {
-        const url = endpoint ? new URL(endpoint + '/dropper') : new URL('ws://localhost:8080/dropper');
-        const { hostname , protocol , port , pathname  } = url;
-        let p;
-        if (protocol === 'http:') p = 'ws://';
-        else if (protocol === 'https:') p = 'wss://';
-        else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//';
-        else throw new Error("ws: unsupported protocol: " + url.protocol);
-        const uri = `${p + hostname}:${port + pathname}`;
-        let socket = new WebSocket(uri);
-        socket.onopen = ()=>{
-            resolve(socket);
+class EventEmitter {
+    static captureRejectionSymbol = Symbol.for("nodejs.rejection");
+    static errorMonitor = Symbol("events.errorMonitor");
+    static get defaultMaxListeners() {
+        return defaultMaxListeners;
+    }
+    static set defaultMaxListeners(value) {
+        defaultMaxListeners = value;
+    }
+    constructor(){
+        this._events = new Map();
+    }
+    _addListener(eventName, listener, prepend) {
+        this.emit("newListener", eventName, listener);
+        if (this._events.has(eventName)) {
+            const listeners = this._events.get(eventName);
+            if (prepend) {
+                listeners.unshift(listener);
+            } else {
+                listeners.push(listener);
+            }
+        } else {
+            this._events.set(eventName, [
+                listener
+            ]);
+        }
+        const max = this.getMaxListeners();
+        if (max > 0 && this.listenerCount(eventName) > max) {
+            const warning = new Error(`Possible EventEmitter memory leak detected.\n         ${this.listenerCount(eventName)} ${eventName.toString()} listeners.\n         Use emitter.setMaxListeners() to increase limit`);
+            warning.name = "MaxListenersExceededWarning";
+            console.warn(warning);
+        }
+        return this;
+    }
+    addListener(eventName, listener) {
+        return this._addListener(eventName, listener, false);
+    }
+    emit(eventName, ...args) {
+        if (this._events.has(eventName)) {
+            if (eventName === "error" && this._events.get(EventEmitter.errorMonitor)) {
+                this.emit(EventEmitter.errorMonitor, ...args);
+            }
+            const listeners = this._events.get(eventName).slice();
+            for (const listener of listeners){
+                try {
+                    listener.apply(this, args);
+                } catch (err) {
+                    this.emit("error", err);
+                }
+            }
+            return true;
+        } else if (eventName === "error") {
+            if (this._events.get(EventEmitter.errorMonitor)) {
+                this.emit(EventEmitter.errorMonitor, ...args);
+            }
+            const errMsg = args.length > 0 ? args[0] : Error("Unhandled error.");
+            throw errMsg;
+        }
+        return false;
+    }
+    eventNames() {
+        return Array.from(this._events.keys());
+    }
+    getMaxListeners() {
+        return this.maxListeners || EventEmitter.defaultMaxListeners;
+    }
+    listenerCount(eventName) {
+        if (this._events.has(eventName)) {
+            return this._events.get(eventName).length;
+        } else {
+            return 0;
+        }
+    }
+    _listeners(target, eventName, unwrap) {
+        if (!target._events.has(eventName)) {
+            return [];
+        }
+        const eventListeners = target._events.get(eventName);
+        return unwrap ? this.unwrapListeners(eventListeners) : eventListeners.slice(0);
+    }
+    unwrapListeners(arr) {
+        const unwrappedListeners = new Array(arr.length);
+        for(let i = 0; i < arr.length; i++){
+            unwrappedListeners[i] = arr[i]["listener"] || arr[i];
+        }
+        return unwrappedListeners;
+    }
+    listeners(eventName) {
+        return this._listeners(this, eventName, true);
+    }
+    rawListeners(eventName) {
+        return this._listeners(this, eventName, false);
+    }
+    off(eventName, listener) {
+        return this.removeListener(eventName, listener);
+    }
+    on(eventName, listener) {
+        return this._addListener(eventName, listener, false);
+    }
+    once(eventName, listener) {
+        const wrapped = this.onceWrap(eventName, listener);
+        this.on(eventName, wrapped);
+        return this;
+    }
+    onceWrap(eventName, listener) {
+        const wrapper = function(...args) {
+            this.context.removeListener(this.eventName, this.rawListener);
+            this.listener.apply(this.context, args);
         };
-        socket.onerror = (err)=>{
-            reject(err);
+        const wrapperContext = {
+            eventName: eventName,
+            listener: listener,
+            rawListener: wrapper,
+            context: this
         };
-    });
+        const wrapped = wrapper.bind(wrapperContext);
+        wrapperContext.rawListener = wrapped;
+        wrapped.listener = listener;
+        return wrapped;
+    }
+    prependListener(eventName, listener) {
+        return this._addListener(eventName, listener, true);
+    }
+    prependOnceListener(eventName, listener) {
+        const wrapped = this.onceWrap(eventName, listener);
+        this.prependListener(eventName, wrapped);
+        return this;
+    }
+    removeAllListeners(eventName) {
+        if (this._events === undefined) {
+            return this;
+        }
+        if (eventName) {
+            if (this._events.has(eventName)) {
+                const listeners = this._events.get(eventName).slice();
+                this._events.delete(eventName);
+                for (const listener of listeners){
+                    this.emit("removeListener", eventName, listener);
+                }
+            }
+        } else {
+            const eventList = this.eventNames();
+            eventList.map((value)=>{
+                this.removeAllListeners(value);
+            });
+        }
+        return this;
+    }
+    removeListener(eventName, listener) {
+        if (this._events.has(eventName)) {
+            const arr = this._events.get(eventName);
+            assert(arr);
+            let listenerIndex = -1;
+            for(let i = arr.length - 1; i >= 0; i--){
+                if (arr[i] == listener || arr[i] && arr[i]["listener"] == listener) {
+                    listenerIndex = i;
+                    break;
+                }
+            }
+            if (listenerIndex >= 0) {
+                arr.splice(listenerIndex, 1);
+                this.emit("removeListener", eventName, listener);
+                if (arr.length === 0) {
+                    this._events.delete(eventName);
+                }
+            }
+        }
+        return this;
+    }
+    setMaxListeners(n) {
+        if (n !== Infinity) {
+            if (n === 0) {
+                n = Infinity;
+            } else {
+                validateIntegerRange(n, "maxListeners", 0);
+            }
+        }
+        this.maxListeners = n;
+        return this;
+    }
+    static once(emitter, name) {
+        return new Promise((resolve, reject)=>{
+            if (emitter instanceof EventTarget) {
+                emitter.addEventListener(name, (...args)=>{
+                    resolve(args);
+                }, {
+                    once: true,
+                    passive: false,
+                    capture: false
+                });
+                return;
+            } else if (emitter instanceof EventEmitter) {
+                const eventListener = (...args)=>{
+                    if (errorListener !== undefined) {
+                        emitter.removeListener("error", errorListener);
+                    }
+                    resolve(args);
+                };
+                let errorListener;
+                if (name !== "error") {
+                    errorListener = (err)=>{
+                        emitter.removeListener(name, eventListener);
+                        reject(err);
+                    };
+                    emitter.once("error", errorListener);
+                }
+                emitter.once(name, eventListener);
+                return;
+            }
+        });
+    }
+    static on(emitter, event) {
+        const unconsumedEventValues = [];
+        const unconsumedPromises = [];
+        let error = null;
+        let finished = false;
+        const iterator = {
+            next () {
+                const value = unconsumedEventValues.shift();
+                if (value) {
+                    return Promise.resolve(createIterResult(value, false));
+                }
+                if (error) {
+                    const p = Promise.reject(error);
+                    error = null;
+                    return p;
+                }
+                if (finished) {
+                    return Promise.resolve(createIterResult(undefined, true));
+                }
+                return new Promise(function(resolve, reject) {
+                    unconsumedPromises.push({
+                        resolve,
+                        reject
+                    });
+                });
+            },
+            return () {
+                emitter.removeListener(event, eventHandler);
+                emitter.removeListener("error", errorHandler);
+                finished = true;
+                for (const promise of unconsumedPromises){
+                    promise.resolve(createIterResult(undefined, true));
+                }
+                return Promise.resolve(createIterResult(undefined, true));
+            },
+            throw (err) {
+                error = err;
+                emitter.removeListener(event, eventHandler);
+                emitter.removeListener("error", errorHandler);
+            },
+            [Symbol.asyncIterator] () {
+                return this;
+            }
+        };
+        emitter.on(event, eventHandler);
+        emitter.on("error", errorHandler);
+        return iterator;
+        function eventHandler(...args) {
+            const promise = unconsumedPromises.shift();
+            if (promise) {
+                promise.resolve(createIterResult(args, false));
+            } else {
+                unconsumedEventValues.push(args);
+            }
+        }
+        function errorHandler(err) {
+            finished = true;
+            const toError = unconsumedPromises.shift();
+            if (toError) {
+                toError.reject(err);
+            } else {
+                error = err;
+            }
+            iterator.return();
+        }
+    }
 }
 function hasOwnProperty(obj, v) {
     if (obj == null) {
@@ -1278,22 +1243,22 @@ class Sha1 {
                 }
             } else {
                 for(i = this.#start; index < length && i < 64; ++index){
-                    let code1 = msg.charCodeAt(index);
-                    if (code1 < 128) {
-                        blocks1[i >> 2] |= code1 << SHIFT[(i++) & 3];
-                    } else if (code1 < 2048) {
-                        blocks1[i >> 2] |= (192 | code1 >> 6) << SHIFT[(i++) & 3];
-                        blocks1[i >> 2] |= (128 | code1 & 63) << SHIFT[(i++) & 3];
-                    } else if (code1 < 55296 || code1 >= 57344) {
-                        blocks1[i >> 2] |= (224 | code1 >> 12) << SHIFT[(i++) & 3];
-                        blocks1[i >> 2] |= (128 | code1 >> 6 & 63) << SHIFT[(i++) & 3];
-                        blocks1[i >> 2] |= (128 | code1 & 63) << SHIFT[(i++) & 3];
+                    let code = msg.charCodeAt(index);
+                    if (code < 128) {
+                        blocks1[i >> 2] |= code << SHIFT[(i++) & 3];
+                    } else if (code < 2048) {
+                        blocks1[i >> 2] |= (192 | code >> 6) << SHIFT[(i++) & 3];
+                        blocks1[i >> 2] |= (128 | code & 63) << SHIFT[(i++) & 3];
+                    } else if (code < 55296 || code >= 57344) {
+                        blocks1[i >> 2] |= (224 | code >> 12) << SHIFT[(i++) & 3];
+                        blocks1[i >> 2] |= (128 | code >> 6 & 63) << SHIFT[(i++) & 3];
+                        blocks1[i >> 2] |= (128 | code & 63) << SHIFT[(i++) & 3];
                     } else {
-                        code1 = 65536 + ((code1 & 1023) << 10 | msg.charCodeAt(++index) & 1023);
-                        blocks1[i >> 2] |= (240 | code1 >> 18) << SHIFT[(i++) & 3];
-                        blocks1[i >> 2] |= (128 | code1 >> 12 & 63) << SHIFT[(i++) & 3];
-                        blocks1[i >> 2] |= (128 | code1 >> 6 & 63) << SHIFT[(i++) & 3];
-                        blocks1[i >> 2] |= (128 | code1 & 63) << SHIFT[(i++) & 3];
+                        code = 65536 + ((code & 1023) << 10 | msg.charCodeAt(++index) & 1023);
+                        blocks1[i >> 2] |= (240 | code >> 18) << SHIFT[(i++) & 3];
+                        blocks1[i >> 2] |= (128 | code >> 12 & 63) << SHIFT[(i++) & 3];
+                        blocks1[i >> 2] |= (128 | code >> 6 & 63) << SHIFT[(i++) & 3];
+                        blocks1[i >> 2] |= (128 | code & 63) << SHIFT[(i++) & 3];
                     }
                 }
             }
@@ -2012,320 +1977,6 @@ const mod = function() {
         generate
     };
 }();
-function gray(str1) {
-    return brightBlack(str1);
-}
-function buildMessage(diffResult) {
-    const messages = [];
-    messages.push("");
-    messages.push("");
-    messages.push(`    ${gray(bold("[Diff]"))} ${red(bold("Actual"))} / ${green(bold("Expected"))}`);
-    messages.push("");
-    messages.push("");
-    diffResult.forEach((result)=>{
-        const c = createColor(result.type);
-        messages.push(c(`${createSign(result.type)}${result.value}`));
-    });
-    messages.push("");
-    return messages;
-}
-function assertEquals(actual, expected, msg) {
-    if (equal(actual, expected)) {
-        return;
-    }
-    let message = "";
-    const actualString = _format(actual);
-    const expectedString = _format(expected);
-    try {
-        const diffResult = diff(actualString.split("\n"), expectedString.split("\n"));
-        const diffMsg = buildMessage(diffResult).join("\n");
-        message = `Values are not equal:\n${diffMsg}`;
-    } catch (e) {
-        message = `\n${red(CAN_NOT_DISPLAY)} + \n\n`;
-    }
-    if (msg) {
-        message = msg;
-    }
-    throw new AssertionError(message);
-}
-class EventEmitter {
-    static captureRejectionSymbol = Symbol.for("nodejs.rejection");
-    static errorMonitor = Symbol("events.errorMonitor");
-    static get defaultMaxListeners() {
-        return defaultMaxListeners;
-    }
-    static set defaultMaxListeners(value) {
-        defaultMaxListeners = value;
-    }
-    constructor(){
-        this._events = new Map();
-    }
-    _addListener(eventName, listener, prepend) {
-        this.emit("newListener", eventName, listener);
-        if (this._events.has(eventName)) {
-            const listeners = this._events.get(eventName);
-            if (prepend) {
-                listeners.unshift(listener);
-            } else {
-                listeners.push(listener);
-            }
-        } else {
-            this._events.set(eventName, [
-                listener
-            ]);
-        }
-        const max = this.getMaxListeners();
-        if (max > 0 && this.listenerCount(eventName) > max) {
-            const warning = new Error(`Possible EventEmitter memory leak detected.\n         ${this.listenerCount(eventName)} ${eventName.toString()} listeners.\n         Use emitter.setMaxListeners() to increase limit`);
-            warning.name = "MaxListenersExceededWarning";
-            console.warn(warning);
-        }
-        return this;
-    }
-    addListener(eventName, listener) {
-        return this._addListener(eventName, listener, false);
-    }
-    emit(eventName, ...args) {
-        if (this._events.has(eventName)) {
-            if (eventName === "error" && this._events.get(EventEmitter.errorMonitor)) {
-                this.emit(EventEmitter.errorMonitor, ...args);
-            }
-            const listeners = this._events.get(eventName).slice();
-            for (const listener of listeners){
-                try {
-                    listener.apply(this, args);
-                } catch (err) {
-                    this.emit("error", err);
-                }
-            }
-            return true;
-        } else if (eventName === "error") {
-            if (this._events.get(EventEmitter.errorMonitor)) {
-                this.emit(EventEmitter.errorMonitor, ...args);
-            }
-            const errMsg = args.length > 0 ? args[0] : Error("Unhandled error.");
-            throw errMsg;
-        }
-        return false;
-    }
-    eventNames() {
-        return Array.from(this._events.keys());
-    }
-    getMaxListeners() {
-        return this.maxListeners || EventEmitter.defaultMaxListeners;
-    }
-    listenerCount(eventName) {
-        if (this._events.has(eventName)) {
-            return this._events.get(eventName).length;
-        } else {
-            return 0;
-        }
-    }
-    _listeners(target, eventName, unwrap) {
-        if (!target._events.has(eventName)) {
-            return [];
-        }
-        const eventListeners = target._events.get(eventName);
-        return unwrap ? this.unwrapListeners(eventListeners) : eventListeners.slice(0);
-    }
-    unwrapListeners(arr) {
-        const unwrappedListeners = new Array(arr.length);
-        for(let i = 0; i < arr.length; i++){
-            unwrappedListeners[i] = arr[i]["listener"] || arr[i];
-        }
-        return unwrappedListeners;
-    }
-    listeners(eventName) {
-        return this._listeners(this, eventName, true);
-    }
-    rawListeners(eventName) {
-        return this._listeners(this, eventName, false);
-    }
-    off(eventName, listener) {
-        return this.removeListener(eventName, listener);
-    }
-    on(eventName, listener) {
-        return this._addListener(eventName, listener, false);
-    }
-    once(eventName, listener) {
-        const wrapped = this.onceWrap(eventName, listener);
-        this.on(eventName, wrapped);
-        return this;
-    }
-    onceWrap(eventName, listener) {
-        const wrapper = function(...args) {
-            this.context.removeListener(this.eventName, this.rawListener);
-            this.listener.apply(this.context, args);
-        };
-        const wrapperContext = {
-            eventName: eventName,
-            listener: listener,
-            rawListener: wrapper,
-            context: this
-        };
-        const wrapped = wrapper.bind(wrapperContext);
-        wrapperContext.rawListener = wrapped;
-        wrapped.listener = listener;
-        return wrapped;
-    }
-    prependListener(eventName, listener) {
-        return this._addListener(eventName, listener, true);
-    }
-    prependOnceListener(eventName, listener) {
-        const wrapped = this.onceWrap(eventName, listener);
-        this.prependListener(eventName, wrapped);
-        return this;
-    }
-    removeAllListeners(eventName) {
-        if (this._events === undefined) {
-            return this;
-        }
-        if (eventName) {
-            if (this._events.has(eventName)) {
-                const listeners = this._events.get(eventName).slice();
-                this._events.delete(eventName);
-                for (const listener of listeners){
-                    this.emit("removeListener", eventName, listener);
-                }
-            }
-        } else {
-            const eventList = this.eventNames();
-            eventList.map((value)=>{
-                this.removeAllListeners(value);
-            });
-        }
-        return this;
-    }
-    removeListener(eventName, listener) {
-        if (this._events.has(eventName)) {
-            const arr = this._events.get(eventName);
-            assert1(arr);
-            let listenerIndex = -1;
-            for(let i = arr.length - 1; i >= 0; i--){
-                if (arr[i] == listener || arr[i] && arr[i]["listener"] == listener) {
-                    listenerIndex = i;
-                    break;
-                }
-            }
-            if (listenerIndex >= 0) {
-                arr.splice(listenerIndex, 1);
-                this.emit("removeListener", eventName, listener);
-                if (arr.length === 0) {
-                    this._events.delete(eventName);
-                }
-            }
-        }
-        return this;
-    }
-    setMaxListeners(n) {
-        if (n !== Infinity) {
-            if (n === 0) {
-                n = Infinity;
-            } else {
-                validateIntegerRange(n, "maxListeners", 0);
-            }
-        }
-        this.maxListeners = n;
-        return this;
-    }
-    static once(emitter, name) {
-        return new Promise((resolve, reject)=>{
-            if (emitter instanceof EventTarget) {
-                emitter.addEventListener(name, (...args)=>{
-                    resolve(args);
-                }, {
-                    once: true,
-                    passive: false,
-                    capture: false
-                });
-                return;
-            } else if (emitter instanceof EventEmitter) {
-                const eventListener = (...args)=>{
-                    if (errorListener !== undefined) {
-                        emitter.removeListener("error", errorListener);
-                    }
-                    resolve(args);
-                };
-                let errorListener;
-                if (name !== "error") {
-                    errorListener = (err)=>{
-                        emitter.removeListener(name, eventListener);
-                        reject(err);
-                    };
-                    emitter.once("error", errorListener);
-                }
-                emitter.once(name, eventListener);
-                return;
-            }
-        });
-    }
-    static on(emitter, event) {
-        const unconsumedEventValues = [];
-        const unconsumedPromises = [];
-        let error = null;
-        let finished = false;
-        const iterator = {
-            next () {
-                const value = unconsumedEventValues.shift();
-                if (value) {
-                    return Promise.resolve(createIterResult(value, false));
-                }
-                if (error) {
-                    const p = Promise.reject(error);
-                    error = null;
-                    return p;
-                }
-                if (finished) {
-                    return Promise.resolve(createIterResult(undefined, true));
-                }
-                return new Promise(function(resolve, reject) {
-                    unconsumedPromises.push({
-                        resolve,
-                        reject
-                    });
-                });
-            },
-            return () {
-                emitter.removeListener(event, eventHandler);
-                emitter.removeListener("error", errorHandler);
-                finished = true;
-                for (const promise of unconsumedPromises){
-                    promise.resolve(createIterResult(undefined, true));
-                }
-                return Promise.resolve(createIterResult(undefined, true));
-            },
-            throw (err) {
-                error = err;
-                emitter.removeListener(event, eventHandler);
-                emitter.removeListener("error", errorHandler);
-            },
-            [Symbol.asyncIterator] () {
-                return this;
-            }
-        };
-        emitter.on(event, eventHandler);
-        emitter.on("error", errorHandler);
-        return iterator;
-        function eventHandler(...args) {
-            const promise = unconsumedPromises.shift();
-            if (promise) {
-                promise.resolve(createIterResult(args, false));
-            } else {
-                unconsumedEventValues.push(args);
-            }
-        }
-        function errorHandler(err) {
-            finished = true;
-            const toError = unconsumedPromises.shift();
-            if (toError) {
-                toError.reject(err);
-            } else {
-                error = err;
-            }
-            iterator.return();
-        }
-    }
-}
 export default class Dropper extends EventEmitter {
     uuid = mod.generate();
     _socket = null;
@@ -2372,36 +2023,29 @@ export default class Dropper extends EventEmitter {
         }
     }
     async ping(data) {
-        let ui = new Uint8Array(data) || new Uint8Array(1);
-        let arr = [
-            'ping',
-            ui
-        ];
-        arr = JSON.stringify(arr);
-        this?._socket?.send(arr);
-    }
-    async pong(data) {
-        const [, body] = data;
-        let arr = [
-            'pong',
+        this?._socket?.send(JSON.stringify({
+            evt: '_ping_',
             data
-        ];
-        arr = JSON.stringify(arr);
-        this?._socket?.send(arr);
+        }));
     }
     async init(socket) {
         this.emit("open");
         socket.onclose = (ev)=>{
-            const { code: code2 , reason  } = ev;
-            this.emit("close", code2, reason);
+            const { code , reason  } = ev;
+            this.emit("close", code, reason);
         };
         for await (const { data: ev  } of websocketEvents(socket)){
             try {
-                this.emit("_all_", ev);
                 if (hasJsonStructure(ev)) {
                     let { evt , data  } = JSON.parse(ev);
+                    if (evt == '_ping_') this._socket?.send(JSON.stringify({
+                        evt: '_pong_',
+                        data
+                    }));
+                    if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);
                     this.emit(evt, data);
                 } else {
+                    this.emit("_all_", ev);
                     this.emit('message', ev);
                 }
             } catch (e) {
@@ -2411,6 +2055,53 @@ export default class Dropper extends EventEmitter {
         }
     }
 };
+class MuxAsyncIterator {
+    iteratorCount = 0;
+    yields = [];
+    throws = [];
+    signal = deferred();
+    add(iterator) {
+        ++this.iteratorCount;
+        this.callIteratorNext(iterator);
+    }
+    async callIteratorNext(iterator) {
+        try {
+            const { value , done  } = await iterator.next();
+            if (done) {
+                --this.iteratorCount;
+            } else {
+                this.yields.push({
+                    iterator,
+                    value
+                });
+            }
+        } catch (e) {
+            this.throws.push(e);
+        }
+        this.signal.resolve();
+    }
+    async *iterate() {
+        while(this.iteratorCount > 0){
+            await this.signal;
+            for(let i = 0; i < this.yields.length; i++){
+                const { iterator , value  } = this.yields[i];
+                yield value;
+                this.callIteratorNext(iterator);
+            }
+            if (this.throws.length) {
+                for (const e of this.throws){
+                    throw e;
+                }
+                this.throws.length = 0;
+            }
+            this.yields.length = 0;
+            this.signal = deferred();
+        }
+    }
+    [Symbol.asyncIterator]() {
+        return this.iterate();
+    }
+}
 async function writeChunkedBody(w, r2) {
     for await (const chunk of Deno.iter(r2)){
         if (chunk.byteLength <= 0) continue;
@@ -2683,52 +2374,110 @@ async function readRequest(conn, bufr) {
     fixLength(req);
     return req;
 }
-class MuxAsyncIterator {
-    iteratorCount = 0;
-    yields = [];
-    throws = [];
-    signal = deferred();
-    add(iterator) {
-        ++this.iteratorCount;
-        this.callIteratorNext(iterator);
+class Server {
+    closing = false;
+    connections = [];
+    constructor(listener){
+        this.listener = listener;
     }
-    async callIteratorNext(iterator) {
-        try {
-            const { value , done  } = await iterator.next();
-            if (done) {
-                --this.iteratorCount;
-            } else {
-                this.yields.push({
-                    iterator,
-                    value
-                });
-            }
-        } catch (e) {
-            this.throws.push(e);
-        }
-        this.signal.resolve();
-    }
-    async *iterate() {
-        while(this.iteratorCount > 0){
-            await this.signal;
-            for(let i = 0; i < this.yields.length; i++){
-                const { iterator , value  } = this.yields[i];
-                yield value;
-                this.callIteratorNext(iterator);
-            }
-            if (this.throws.length) {
-                for (const e of this.throws){
+    close() {
+        this.closing = true;
+        this.listener.close();
+        for (const conn of this.connections){
+            try {
+                conn.close();
+            } catch (e) {
+                if (!(e instanceof Deno.errors.BadResource)) {
                     throw e;
                 }
-                this.throws.length = 0;
             }
-            this.yields.length = 0;
-            this.signal = deferred();
         }
     }
-    [Symbol.asyncIterator]() {
-        return this.iterate();
+    async *iterateHttpRequests(conn) {
+        const reader = new BufReader(conn);
+        const writer3 = new BufWriter(conn);
+        while(!this.closing){
+            let request;
+            try {
+                request = await readRequest(conn, reader);
+            } catch (error) {
+                if (error instanceof Deno.errors.InvalidData || error instanceof Deno.errors.UnexpectedEof) {
+                    try {
+                        await writeResponse(writer3, {
+                            status: 400,
+                            body: encode(`${error.message}\r\n\r\n`)
+                        });
+                    } catch (error) {
+                    }
+                }
+                break;
+            }
+            if (request === null) {
+                break;
+            }
+            request.w = writer3;
+            yield request;
+            const responseError = await request.done;
+            if (responseError) {
+                this.untrackConnection(request.conn);
+                return;
+            }
+            try {
+                await request.finalize();
+            } catch (error) {
+                break;
+            }
+        }
+        this.untrackConnection(conn);
+        try {
+            conn.close();
+        } catch (e) {
+        }
     }
+    trackConnection(conn) {
+        this.connections.push(conn);
+    }
+    untrackConnection(conn) {
+        const index = this.connections.indexOf(conn);
+        if (index !== -1) {
+            this.connections.splice(index, 1);
+        }
+    }
+    async *acceptConnAndIterateHttpRequests(mux) {
+        if (this.closing) return;
+        let conn;
+        try {
+            conn = await this.listener.accept();
+        } catch (error) {
+            if (error instanceof Deno.errors.BadResource || error instanceof Deno.errors.InvalidData || error instanceof Deno.errors.UnexpectedEof || error instanceof Deno.errors.ConnectionReset) {
+                return mux.add(this.acceptConnAndIterateHttpRequests(mux));
+            }
+            throw error;
+        }
+        this.trackConnection(conn);
+        mux.add(this.acceptConnAndIterateHttpRequests(mux));
+        yield* this.iterateHttpRequests(conn);
+    }
+    [Symbol.asyncIterator]() {
+        const mux = new MuxAsyncIterator();
+        mux.add(this.acceptConnAndIterateHttpRequests(mux));
+        return mux.iterate();
+    }
+}
+function serve(addr) {
+    if (typeof addr === "string") {
+        addr = _parseAddrFromStr(addr);
+    }
+    const listener1 = Deno.listen(addr);
+    return new Server(listener1);
+}
+function serveTLS(options1) {
+    const tlsOptions = {
+        ...options1,
+        transport: "tcp"
+    };
+    const listener1 = Deno.listenTls(tlsOptions);
+    return new Server(listener1);
 }
 async function writeFrame(frame, writer3) {
     const payloadLength = frame.payload.byteLength;
@@ -2767,11 +2516,11 @@ async function writeFrame(frame, writer3) {
 }
 class WebSocketImpl {
     sendQueue = [];
-    constructor({ conn: conn1 , bufReader , bufWriter , mask  }){
-        this.conn = conn1;
+    constructor({ conn , bufReader , bufWriter , mask  }){
+        this.conn = conn;
         this.mask = mask;
-        this.bufReader = bufReader || new BufReader(conn1);
-        this.bufWriter = bufWriter || new BufWriter(conn1);
+        this.bufReader = bufReader || new BufReader(conn);
+        this.bufWriter = bufWriter || new BufWriter(conn);
     }
     async *[Symbol.asyncIterator]() {
         let frames = [];
@@ -2809,11 +2558,11 @@ class WebSocketImpl {
                     break;
                 case OpCode.Close:
                     {
-                        const code2 = frame.payload[0] << 8 | frame.payload[1];
+                        const code = frame.payload[0] << 8 | frame.payload[1];
                         const reason = decode(frame.payload.subarray(2, frame.payload.length));
-                        await this.close(code2, reason);
+                        await this.close(code, reason);
                         yield {
-                            code: code2,
+                            code,
                             reason
                         };
                         return;
@@ -2935,109 +2684,4 @@ class WebSocketImpl {
             );
         }
     }
-}
-class Server {
-    closing = false;
-    connections = [];
-    constructor(listener){
-        this.listener = listener;
-    }
-    close() {
-        this.closing = true;
-        this.listener.close();
-        for (const conn1 of this.connections){
-            try {
-                conn1.close();
-            } catch (e) {
-                if (!(e instanceof Deno.errors.BadResource)) {
-                    throw e;
-                }
-            }
-        }
-    }
-    async *iterateHttpRequests(conn) {
-        const reader = new BufReader(conn);
-        const writer3 = new BufWriter(conn);
-        while(!this.closing){
-            let request;
-            try {
-                request = await readRequest(conn, reader);
-            } catch (error) {
-                if (error instanceof Deno.errors.InvalidData || error instanceof Deno.errors.UnexpectedEof) {
-                    try {
-                        await writeResponse(writer3, {
-                            status: 400,
-                            body: encode(`${error.message}\r\n\r\n`)
-                        });
-                    } catch (error) {
-                    }
-                }
-                break;
-            }
-            if (request === null) {
-                break;
-            }
-            request.w = writer3;
-            yield request;
-            const responseError = await request.done;
-            if (responseError) {
-                this.untrackConnection(request.conn);
-                return;
-            }
-            try {
-                await request.finalize();
-            } catch (error) {
-                break;
-            }
-        }
-        this.untrackConnection(conn);
-        try {
-            conn.close();
-        } catch (e) {
-        }
-    }
-    trackConnection(conn) {
-        this.connections.push(conn);
-    }
-    untrackConnection(conn) {
-        const index = this.connections.indexOf(conn);
-        if (index !== -1) {
-            this.connections.splice(index, 1);
-        }
-    }
-    async *acceptConnAndIterateHttpRequests(mux) {
-        if (this.closing) return;
-        let conn2;
-        try {
-            conn2 = await this.listener.accept();
-        } catch (error) {
-            if (error instanceof Deno.errors.BadResource || error instanceof Deno.errors.InvalidData || error instanceof Deno.errors.UnexpectedEof || error instanceof Deno.errors.ConnectionReset) {
-                return mux.add(this.acceptConnAndIterateHttpRequests(mux));
-            }
-            throw error;
-        }
-        this.trackConnection(conn2);
-        mux.add(this.acceptConnAndIterateHttpRequests(mux));
-        yield* this.iterateHttpRequests(conn2);
-    }
-    [Symbol.asyncIterator]() {
-        const mux = new MuxAsyncIterator();
-        mux.add(this.acceptConnAndIterateHttpRequests(mux));
-        return mux.iterate();
-    }
-}
-function serve(addr) {
-    if (typeof addr === "string") {
-        addr = _parseAddrFromStr(addr);
-    }
-    const listener1 = Deno.listen(addr);
-    return new Server(listener1);
-}
-function serveTLS(options1) {
-    const tlsOptions = {
-        ...options1,
-        transport: "tcp"
-    };
-    const listener1 = Deno.listenTls(tlsOptions);
-    return new Server(listener1);
 }
