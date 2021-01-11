@@ -18,10 +18,12 @@ app.get("/", function(req, res) {
 });
 
 dropper.on('connection', socket => {
-  console.log(socket)
   socket.send('handshake', "Hello from server");
   socket.on('thanks', msg => {
     console.log(msg)
+  })
+  socket.on('close', (code, reason) => {
+    console.log(code, reason);
   })
 })
 

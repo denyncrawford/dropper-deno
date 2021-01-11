@@ -14,7 +14,8 @@ dropper.on('_all_', ev => {
   console.log(ev);
 })
 
-dropper.on('handshake', () => {
+dropper.on('handshake', msg => {
+  console.log(msg);
   dropper.send('thanks', "From client");
 })
 

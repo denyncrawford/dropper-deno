@@ -1,7 +1,7 @@
 import { websocketEvents } from 'https://raw.githubusercontent.com/denyncrawford/websocket-iterator/master/src/websocket-iterator.ts'
 import { 
   hasJsonStructure,
-  isArray
+  connectWebSocket
  } from './helpers.ts'
 import { 
   EventEmitter,
@@ -77,26 +77,4 @@ export default class Dropper extends EventEmitter {
       }
     }
   }
-}
-
-// Utils
-
-function connectWebSocket(endpoint: string | undefined): Promise<WebSocket> {
-  return new Promise(function(resolve, reject) {
-    const url = endpoint ? new URL(endpoint+'/dropper') : new URL('ws://localhost:8080/dropper');
-    const { hostname, protocol, port, pathname } = url
-    let p: string;
-    if (protocol === 'http:') p = 'ws://'
-    else if (protocol === 'https:') p = 'wss://'
-    else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//'
-    else throw new Error("ws: unsupported protocol: " + url.protocol);
-    const uri = `${p+hostname}:${port + pathname}`
-    let socket = new WebSocket(uri);
-    socket.onopen = () => {          
-      resolve(socket);
-    };
-    socket.onerror = (err:any) => {
-      reject(err);
-    };
-  });
 }

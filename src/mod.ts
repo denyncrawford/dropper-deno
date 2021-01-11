@@ -37,7 +37,7 @@ class Dropper extends EventEmitter {
       this.serveClient(this._socket);
     }
   }
-  
+
   public async send(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {
     let data_push: string = data ? JSON.stringify({ evt, data }) : JSON.stringify(evt);    
     if (this._socket !== null) await this._socket.send(data_push)
@@ -113,6 +113,7 @@ class Dropper extends EventEmitter {
  class Server extends EventEmitter {
    private willClose: boolean = false;
    public clients: Map<string, Dropper> = new Map();
+  
    constructor(public options?: any) {
      super();
      this.options = Object.assign({
