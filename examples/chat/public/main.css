@@ -1,0 +1,12 @@
+.fade-enter-active {
+  animation: fadeInUp; /* referring directly to the animation's @keyframe declaration */
+  animation-duration: .5s; /* don't forget to set a duration! */
+}
+.fade-leave-active /* .fade-leave-active below version 2.1.8 */ {
+  animation: fadeOutDown; /* referring directly to the animation's @keyframe declaration */
+  animation-duration: .5s;
+}
+
+* {
+  scroll-behavior: smooth;
+}

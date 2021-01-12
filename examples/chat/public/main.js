@@ -1,24 +1,50 @@
-import Dropper from 'https://raw.githack.com/denyncrawford/dropper-deno/main/dist/clients/dropper.browser.js'
+import router from './router.js'
+import store from './store.js'
 
-const dropper = new Dropper()
+// APP
 
-dropper.on("open", () => {
-  console.log("Connected.");
-  dropper.send("Hello, world!"); // Simple send
-  dropper.send("crawford", { // Custom event
-    name: 'denyncrawford'
-  })
-});
+new Vue({
+  template: `
+    <div>
+      <transition name="fade">
+        <loader v-show="loading"/>
+      </transition>
+      <transition name="fade">
+        <router-view></router-view>
+      </transition>
+    </div>
+  `,
+  components: {
+    Loader: () => import('./components/loader.js')
+  },
+  computed:{ 
+    ...Vuex.mapState(['loading'])
+  },
+  router,
+  store
+}).$mount('#app');
 
-dropper.on('_all_', ev => {
-  console.log(ev);
-})
+// const dropper = new Dropper();
 
-dropper.on('handshake', msg => {
-  console.log(msg);
-  dropper.send('thanks', "From client");
-})
+// dropper.on("open", () => {
+//   console.log("Connected.");
+//   dropper.send("Hello, world!"); // Simple send
+//   dropper.send("crawford", {
+//     // Custom event
+//     name: "denyncrawford"
+//   });
+// });
 
-dropper.on("crawford", data => { // Catch custom event
-  console.log(data);
-})
+// dropper.on("_all_", (ev) => {
+//   console.log(ev);
+// });
+
+// dropper.on("handshake", (msg) => {
+//   console.log(msg);
+//   dropper.send("thanks", "From client");
+// });
+
+// dropper.on("crawford", (data) => {
+//   // Catch custom event
+//   console.log(data);
+// });
