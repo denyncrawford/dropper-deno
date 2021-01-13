@@ -1,4 +1,4 @@
-import { Server as Dropper } from "https://deno.land/x/dropper@1.8.0/src/mod.ts";
+import { Server as Dropper } from "../../../src/mod.ts";
 import { opine, serveStatic } from "https://deno.land/x/opine@1.0.2/mod.ts";
 import {
   dirname,
@@ -20,9 +20,7 @@ app.get("/*", function (req, res) {
 });
 
 dropper.on("connection", (socket) => {
-  socket.on("client_msg", (msg) => {
-    socket.broadcast('client_msg', msg)
-  });
+  console.log(`The socket ${socket.uuid} is connected.`);
   socket.on("close", (code, reason) => {
     console.log(code, reason);
   });

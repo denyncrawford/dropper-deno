@@ -49,7 +49,7 @@ class Dropper extends EventEmitter {
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
     if (this._socket !== null) {
       let data_push: string = data ? JSON.stringify({ evt, data, client: this.uuid}) : JSON.stringify({ evt: '_all_', data: evt, client: this.uuid});
-      if (this._socket !== null) await this.emit("_broadcast_", data_push)
+      if (this._socket !== null) await this.send("_broadcast_", data_push)
     }
   }
 
@@ -74,10 +74,10 @@ class Dropper extends EventEmitter {
     for await (const  { data: ev  } of websocketEvents(socket)) {
       try {
         if (hasJsonStructure(ev)) {
-          let { evt, data } = JSON.parse(ev);
+          let { evt, data, client } = JSON.parse(ev);
           if (evt == '_ping_') this._socket?.send(JSON.stringify({ evt: '_pong_', data}))
-          if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);
-          this.emit(evt, data)
+          if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);                   
+          if (client !== this.uuid) this.emit(evt, data)
         } else {
            this.emit("_all_", ev);
            this.emit('message', ev)
@@ -147,8 +147,8 @@ class Dropper extends EventEmitter {
        evt,
        data
      }) : JSON.stringify(evt);
-     this.clients.forEach(async (client) => {
-       if (client._socket !== null) await client._socket.send(data_push)
+     this.clients.forEach( client => {
+       if (client._socket !== null) client._socket.send(data_push)
      })
    }
 
@@ -219,13 +219,10 @@ class Dropper extends EventEmitter {
              this.emit('message', ev)
            }
           })
-          // Broadcast
-          client.on("_broadcast_", async data => {
-            let data_send = JSON.parse(data)
+          // Client Broadcast
+          client.on("_broadcast_", async data => {                   
             this.clients.forEach(async (c) => {
-              if (data_send.client !== c.uuid) {
-                await c?._socket?.send(data)
-              }
+              c?._socket?.send(data)
             })
           })
           const allowConnect = this.emit("connection", client);

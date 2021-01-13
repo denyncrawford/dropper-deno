@@ -36,7 +36,7 @@ export default class Dropper extends EventEmitter {
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
     if (this._socket !== null) {
       let data_push: string = data ? JSON.stringify({ evt, data, client: this.uuid}) : JSON.stringify({ evt: '_all_', data: evt, client: this.uuid});
-      if (this._socket !== null) await this.emit("_broadcast_", data_push)
+      if (this._socket !== null) await this.send("_broadcast_", data_push)
     }
   }
   public async close(code: number = 1005, reason: string = ""): Promise<void> {
@@ -60,10 +60,10 @@ export default class Dropper extends EventEmitter {
     for await (const  { data: ev  } of websocketEvents(socket)) {
       try {
         if (hasJsonStructure(ev)) {
-          let { evt, data } = JSON.parse(ev);
+          let { evt, data, client } = JSON.parse(ev);
           if (evt == '_ping_') this._socket?.send(JSON.stringify({ evt: '_pong_', data}))
-          if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);
-          this.emit(evt, data)
+          if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);                   
+          if (client !== this.uuid) this.emit(evt, data)
         } else {
            this.emit("_all_", ev);
            this.emit('message', ev)
