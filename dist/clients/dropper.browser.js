@@ -2014,7 +2014,7 @@ export default class Dropper extends EventEmitter {
                 data: evt,
                 client: this.uuid
             });
-            if (this._socket !== null) await this.send("_broadcast_", data_push);
+            if (this._socket !== null) await this.emit("_broadcast_", data_push);
         }
     }
     async close(code = 1005, reason = "") {
@@ -2037,13 +2037,13 @@ export default class Dropper extends EventEmitter {
         for await (const { data: ev  } of websocketEvents(socket)){
             try {
                 if (hasJsonStructure(ev)) {
-                    let { evt , data , client  } = JSON.parse(ev);
+                    let { evt , data  } = JSON.parse(ev);
                     if (evt == '_ping_') this._socket?.send(JSON.stringify({
                         evt: '_pong_',
                         data
                     }));
                     if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);
-                    if (client !== this.uuid) this.emit(evt, data);
+                    this.emit(evt, data);
                 } else {
                     this.emit("_all_", ev);
                     this.emit('message', ev);
