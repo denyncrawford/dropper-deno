@@ -44,7 +44,7 @@ export default {
         text: this.currentMessage,
         owner: this.user
       }
-      await dropper.send('client_msg', msg)
+      await dropper.broadcast('client_msg', msg)
       this.messages.push(msg)
       this.scrollDown()
       this.currentMessage = '';
@@ -62,7 +62,6 @@ export default {
     if (this.loading) this.toggleLoading();
     const dropper = this.dropper;
     if (dropper) dropper.on('client_msg', msg => {
-      let container = this.$refs.messagesContainer
       this.messages.push(msg)
       this.scrollDown()
     })
