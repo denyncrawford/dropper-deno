@@ -1,4 +1,4 @@
-import { Server as Dropper } from "https://deno.land/x/dropper@1.8.0/src/mod.ts";
+import { Server as Dropper } from "../../../src/mod.ts";
 import { opine, serveStatic } from "https://deno.land/x/opine@1.0.2/mod.ts";
 import {
   dirname,
