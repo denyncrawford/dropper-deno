@@ -20,9 +20,7 @@ app.get("/*", function (req, res) {
 });
 
 dropper.on("connection", (socket) => {
-  socket.on("client_msg", (msg) => {
-    socket.broadcast('client_msg', msg)
-  });
+  console.log(`${socket.uuid} is online.`);
   socket.on("close", (code, reason) => {
     console.log(code, reason);
   });
