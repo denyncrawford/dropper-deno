@@ -8,7 +8,7 @@ dropper.on('open', () => {
     setInterval(() => {
         i++
         dropper.broadcast('hello', `hi from ${dropper.uuid} ${i}`)
-    }, 10000)
+    }, 1000)
 })
 
 dropper.on('hello', msg => {

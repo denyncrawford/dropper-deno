@@ -185,6 +185,7 @@ class Dropper extends EventEmitter {
              // @ts-ignore
              if (!client?._socket?.isClosed) client.ping()
              tm = setTimeout( () => {
+               console.log("CLIENT DISCONNECTED")
                clearInterval(int);
                this.emit("disconnection", 1001, 'Client is leaving', client)
                this.clients.delete(uuid);
