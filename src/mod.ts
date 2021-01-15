@@ -129,6 +129,7 @@ class Dropper extends EventEmitter {
  class Server extends EventEmitter {
    private willClose: boolean = false;
    public clients: Map<string, Dropper> = new Map();
+   private user_agent : any = '';
    constructor(public options?: any) {
      super();
      this.options = Object.assign({
@@ -168,6 +169,7 @@ class Dropper extends EventEmitter {
       headers,
       conn
     } = req;
+    this.user_agent = headers.get('user-agent');  
     acceptWebSocket({
         conn,
         headers,
@@ -185,7 +187,6 @@ class Dropper extends EventEmitter {
              // @ts-ignore
              if (!client?._socket?.isClosed) client.ping()
              tm = setTimeout( () => {
-               console.log("CLIENT DISCONNECTED")
                clearInterval(int);
                this.emit("disconnection", 1001, 'Client is leaving', client)
                this.clients.delete(uuid);
@@ -196,8 +197,12 @@ class Dropper extends EventEmitter {
                client = null;
              }, 1000);
           }
+
           // Interval initialization
-          let int = setInterval(ping, this.options.interval);
+
+          let userCheck: RegExp = new RegExp('Deno', 'i');
+
+          let int: any = userCheck.test(this.user_agent) ? setInterval(ping, this.options.interval) : null;
           client.on('_pong_', () => {               
            clearTimeout(tm);
           })
