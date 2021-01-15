@@ -212,7 +212,8 @@ class Dropper extends EventEmitter {
             this.clients.delete(uuid);
             this.clients.forEach(async (c) => {
              let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
-             await c?._socket?.send(send_disconnection)
+             // @ts-ignore 
+             if (!c?._socket?.isClosed) await c?._socket?.send(send_disconnection)
             })
             client = null;
           });
