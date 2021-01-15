@@ -11,10 +11,22 @@ export default {
             <div class="w-full h-full relative flex flex-col">
               <div ref='messagesContainer' class="overflow-auto text-left w-full bottom-0 max-h-full overflow-auto absolute mt-auto">
                 <div class="px-5 mb-1 flex" v-for="(message, i) in messages" :key="message.owner.id+'_'+i">
-                  <div :class="[i === messages.length - 1 ? 'mb-5' : '']" v-if="message.owner.id == user.id" class="max-w-full ml-auto text-white px-2 py-1 rounded-l-lg rounded-tr-lg bg-black">
+                  <div
+                    v-if="message.owner.id == user.id" 
+                    :class="[
+                      i === messages.length - 1 || messages[i+1]?.owner?.id !== message.owner.id ? 'mb-5' : '',
+                      messages[i+1]?.owner?.id === message.owner.id && messages[i-1]?.owner?.id === message.owner.id ? '' : messages[i-1]?.owner?.id !== message.owner.id ? 'rounded-tr-lg'  : 'rounded-br-lg'
+                    ]"  
+                    class="max-w-full break-all ml-auto text-white px-2 py-1 rounded-l-lg bg-black"
+                  >
                     {{message.text}}
                   </div>
-                  <div :class="[i === messages.length - 1 ? 'mb-5' : '']" v-else class="max-w-full px-2 py-1 rounded-r-lg rounded-tl-lg bg-gray-200">
+                  <div 
+                    v-else-if="message.owner.id != user.id"
+                    :class="[
+                      i === messages.length - 1 || messages[i+1]?.owner?.id !== message.owner.id ? 'mb-5' : '',
+                      messages[i+1]?.owner?.id === message.owner.id && messages[i-1]?.owner?.id === message.owner.id ? '' : messages[i-1]?.owner?.id !== message.owner.id ? 'rounded-tl-lg' : 'rounded-bl-lg'
+                    ]" class="max-w-full break-all px-2 py-1 rounded-r-lg bg-gray-200">
                     {{message.text}}
                   </div>
                 </div>
