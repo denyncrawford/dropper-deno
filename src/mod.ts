@@ -48,8 +48,9 @@ class Dropper extends EventEmitter {
 
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
     if (this._socket !== null) {
-      let data_push: string = data ? JSON.stringify({ evt, data, client: this.uuid}) : JSON.stringify({ evt: '_all_', data: evt, client: this.uuid});
-      if (this._socket !== null) await this.emit("_broadcast_", data_push)
+      let data_push: object = data ? { evt, data, client: this.uuid }: { evt: 'message', data: evt, client: this.uuid };
+      let broadcast: string = JSON.stringify({evt: '_broadcast_', data: data_push})
+      if (this._socket !== null) await this._socket.send(broadcast)
     }
   }
 
@@ -74,10 +75,10 @@ class Dropper extends EventEmitter {
     for await (const  { data: ev  } of websocketEvents(socket)) {
       try {
         if (hasJsonStructure(ev)) {
-          let { evt, data } = JSON.parse(ev);
+          let { evt, data, client } = JSON.parse(ev);
           if (evt == '_ping_') this._socket?.send(JSON.stringify({ evt: '_pong_', data}))
           if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);
-          this.emit(evt, data)
+          if (client !== this.uuid) this.emit(evt, data)
         } else {
            this.emit("_all_", ev);
            this.emit('message', ev)
@@ -194,7 +195,7 @@ class Dropper extends EventEmitter {
                client = null;
              }, 1000);
           }
-          // interval initialization
+          // Interval initialization
           let int = setInterval(ping, this.options.interval);
           client.on('_pong_', () => {               
            clearTimeout(tm);
@@ -221,11 +222,10 @@ class Dropper extends EventEmitter {
           })
           // Broadcast
           client.on("_broadcast_", async data => {
-            let data_send = JSON.parse(data)
+            let data_send = JSON.stringify(data)
             this.clients.forEach(async (c) => {
-              if (data_send.client !== c.uuid) {
-                await c?._socket?.send(data)
-              }
+              // @ts-ignore 
+              if (!c?._socket?.isClosed) c?._socket?.send(data_send)
             })
           })
           const allowConnect = this.emit("connection", client);
