@@ -407,6 +407,16 @@ This is a list with the events you shouldn't play with:
 
 All the Dropper internal events has as prefix and suffix `_`. For example this is an internal event: `_ping_`, This is for preventing event collisions.
 
+## Building the web client
+
+- Install rollup from [this module](https://deno.land/x/drollup)
+
+- Perform the bundle:
+
+```bash
+rollup src\browser.ts --format es --name "Dropper" --file dist\clients\dropper.js
+```
+
 #### The documentation is WIP right now
 
 By now, you can find detailed code in the examples folder.
