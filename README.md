@@ -414,7 +414,7 @@ All the Dropper internal events has as prefix and suffix `_`. For example this i
 - Perform the bundle:
 
 ```bash
-rollup src\browser.ts --format es --name "Dropper" --file dist\clients\dropper.js
+rollup -c
 ```
 
 #### The documentation is WIP right now
