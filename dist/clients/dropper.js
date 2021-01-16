@@ -32,12 +32,12 @@ function connectWebSocket(endpoint) {
 /** A default TextEncoder instance */ const encoder = new TextEncoder();
 /** A default TextDecoder instance */ const decoder = new TextDecoder();
 
-class PartialReadError extends Deno.errors.UnexpectedEof {
-    name = "PartialReadError";
-    constructor(){
-        super("Encountered UnexpectedEof, data only partially read");
-    }
-}
+// class PartialReadError extends Deno.errors.UnexpectedEof {
+//     name = "PartialReadError";
+//     constructor(){
+//         super("Encountered UnexpectedEof, data only partially read");
+//     }
+// }
 
 var Status;
 (function(Status) {

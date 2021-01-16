@@ -1,4 +1,4 @@
-import Dropper from "https://raw.githack.com/denyncrawford/dropper-deno/main/dist/clients/dropper.js";
+import Dropper from "https://rawcdn.githack.com/denyncrawford/dropper-deno/db7024d626bb7a15560efef491e6bd852fc4eeb1/dist/clients/dropper.js";
 export default {
   template: `
     <div class="flex p-10 w-screen h-screen justify-center items-center">
