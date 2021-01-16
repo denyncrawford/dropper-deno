@@ -2,21 +2,30 @@
 
 Dropper is a custom **Event-driven WebSocket framework** for Deno, using the deno-std ws module as base.
 
-Send and receive notifications, messages, updates and any data, all in real-time with custom events and methods served on your own, Dropper is Open Source, self-served and FREE forever!
+> Send and receive notifications, messages, updates and any data, all in real-time with custom events and methods served on your own, Dropper is Open Source, self-served and FREE forever!
 
 ## What can I do with Dropper?
 
-Since Dropper is a WebSocket solution for delivering messages between servers and clients in real-time, it's Side by Side APIs are designed to handle custom events sent by the application peers, you can work with the structured event handlers that allows to send and receive classified data in a woshhh.
+Since Dropper is a WebSocket solution for transporting data between servers and clients, you can do whatever you need to go on real-time, like chat apps, trading, bots, database and website hot refreshs, etc. It's Side by Side APIs are designed to handle custom events sent by the application peers, you can work with the structured event handlers that allows to send and receive filtered data in a woshhh.
 
+## Quick Demo
+
+The chat test on this repo [lives on glitch](https://deno-dropper.glitch.me/), and you can test the app in production, but you can also run the demo on your local machine:
+
+```bash
+deno run -A https://deno.land/x/dropper@1.9.0/examples/chat/src/server.js
+```
+
+> It will start a server on 8080 port
 
 ## Importing
 
 **Server:**
 
 ```ts
-import { Server } from 'https://deno.land/x/dropper@1.8.0/src/mod.ts';
+import { Server } from 'https://deno.land/x/dropper@1.9.0/src/mod.ts';
 //or
-import { Server } from 'https://x.nest.land/dropper@1.8.0/src/mod.ts'
+import { Server } from 'https://x.nest.land/dropper@1.9.0/src/mod.ts'
 ```
 
 **Deno client:**
@@ -24,9 +33,9 @@ import { Server } from 'https://x.nest.land/dropper@1.8.0/src/mod.ts'
 You can import the client directly on your Deno app.
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.8.0/src/mod.ts';
+import Dropper from 'https://deno.land/x/dropper@1.9.0/src/mod.ts';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.8.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.9.0/src/mod.ts'
 ```
 
 **Browser client**
@@ -34,9 +43,9 @@ import Dropper from 'https://x.nest.land/dropper@1.8.0/src/mod.ts'
 You can import this client on the browser in a module script.
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.8.0/dist/clients/dropper.browser.js';
+import Dropper from 'https://deno.land/x/dropper@1.9.0/dist/clients/dropper.js';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.8.0/dist/clients/dropper.browser.js'
+import Dropper from 'https://x.nest.land/dropper@1.9.0/dist/clients/dropper.js'
 ```
 
 ## Usage
