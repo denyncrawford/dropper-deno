@@ -98,7 +98,7 @@ const dropper = new Dropper({
   serve: false // Important
 })
 
-app.use('/dropper' (req) => dropper.handle(req)); // Don't respond or call next, just use the request.
+app.use('/dropper', (req) => dropper.handle(req)); // Don't respond or call next, just use the request.
 
 app.get('/', (req, res) => {
   //...foo
@@ -112,10 +112,10 @@ app.listen(3000)
 
 ``` 
 
-- **Using the std http server**:
+- **Using the Deno's std http server**:
 
 ```javascript
-import { serve } from 'https://serverhttpsouce/mod.ts'
+import { serve } from 'https://deno.land/x/opine/mod.ts'
 import { Server as Dropper } from '...'
 
 const server = serve('localhost:3000')
@@ -142,13 +142,13 @@ for await (const req of server) {
 
 ### Options (optional) 
 
-- `host`: The host you want to use if the serve is true. 
+- `host`: The host you want to use if the serve option is true. 
   - Default: 'localhost',
-- `port`: The host you want to use if the serve is true
+- `port`: The host you want to use if the serve option is true
   - Default: 8080,
 - `interval`: The ping interval in ms.
   - Default: 3000
-- `serve`: Set false if you don't want to serve Dropper (stand alone)
+- `serve`: Set false if you don't want to serve Dropper (stand alone) - Using with your own http server.
   - Default: true
 
 ### API
@@ -299,6 +299,21 @@ dropper.on('pizza', function(data){
 
 dropper.on('close' => console.log('done'))
 ```
+### Connecting custom hosts
+
+By default the Dropper clients connect to `ws://localhost:8080` but you can change it by passing the host string as first param, you must specify if the connection is secure or not with the protocols `ws || http` for insecure connections or `wss || https` for secure connections.
+
+```javascript
+const dropper = new Dropper('ws://localhost:3000'); // Connect the client on port 3000
+
+// OR
+
+const options = {
+  endpoint: '/myDropperServerReservedEndpoint'
+}
+
+const dropper = new Dropper(`wss://${window.location.host}`, options); // Connects the client on the current host with a secure connection
+```
 
 ### Options (optional)
 
@@ -309,28 +324,28 @@ dropper.on('close' => console.log('done'))
 
 **Methods**:
 
-- `close` - Closes the connection.
+- `Dropper.close` - Closes the connection.
 
   The `close` method receives two **optional** arguments:
 
   - `code` - Connection close code number
   - `reason` - A reason message for the close event.
 
-- `broadcast` - Send the data to the server to be broadcasted to all peers but this (Meant to be used on server-side).
+- `Dropper.broadcast` - Send the data to the server to be broadcasted to all peers except the emitter one.
 
   The `broadcast` method receive two arguments.
 
     - Argument1: `event` | `data` - This argument changes to data if the data argument is not provided, by default it is the event name.
      - `data` (optional) - This is the data to be sent.
 
-- `on` - Listen for the client events.
+- `Dropper.on` - Listen for the client events.
 
   The `on` method receives two arguments:
 
     - `event` - The event name
     - `callback` - Callback function to get the event data. 
 
-- `send` - Send the data to the server.
+- `Dropper.send` - Send the data to the server.
 
   The `send` method receive same arguments as the `broadcast` method.
 
@@ -434,6 +449,7 @@ By now, you can find detailed code in the examples folder.
 
 - Channels support
 - ✔️ Rename the `message` event to `_all_`
+- ✔️ Broadcast support
 - Auto reconnect
 - ✔️ Improve documentation
 - Website
