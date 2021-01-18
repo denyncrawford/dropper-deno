@@ -50,7 +50,7 @@ import Dropper from 'https://x.nest.land/dropper@1.9.0/dist/clients/dropper.js'
 
 ## Usage
 
-By default, it exports two instances of WebSocket. The API is very similar to the websockets API for browsers, but based on custom events.
+By default, you can use two instances of Dropper, the server and the client. The API is very similar to the EventEmitter API, but it is WebScoekts using on custom events.
 
 ## Server:
 
@@ -288,6 +288,8 @@ This is a list with the events you shouldn't play with:
 ## Client
 
 The client API connects to a server and it is a socket instance, so it has the same methods as the `socket` above.
+> Note: For creating clients on deno you can import Dropper from the main module, please don't use the Browser bundle.
+
 
 ```javascript
 const dropper = new Dropper(); // Connect the client on port 8080
