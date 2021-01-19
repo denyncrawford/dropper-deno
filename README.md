@@ -58,7 +58,7 @@ The server waits for socket connections using the global event `connection`. Thi
 
 ### Stand alone server
 
-Dropper is stand alone by default, which means tha you don't need to provide an http server, when you create a dropper it serves by default on port 8080. 
+Dropper is stand alone by default, which means that you don't need to provide an http server, when you create a dropper it serves by default on port 8080. 
 
 > This is useful whe you are creating an app without a server side.
 
@@ -90,7 +90,7 @@ You can also use Dropper with a server/framework setup since it handles each req
 - **Using a framework like opine**:
 
 ```javascript
-import { opine } from 'https://opinesource/mod.ts'
+import { opine } from 'https://deno.land/x/opine/mod.ts'
 const app = opine();
 import { Server as Dropper } from '...'
 
@@ -115,7 +115,7 @@ app.listen(3000)
 - **Using the Deno's std http server**:
 
 ```javascript
-import { serve } from 'https://deno.land/x/opine/mod.ts'
+import { serve } from 'https://deno.land/std/http/server.ts'
 import { Server as Dropper } from '...'
 
 const server = serve('localhost:3000')
