@@ -367,6 +367,12 @@ This is pushing a custom event to the server
 dropper.send('pizza', 'this is a pizza')
 ```
 
+```javascript
+dropper.broadcast('pizza', 'this is a pizza')
+```
+
+This is broadcasting a custom event to the server
+
 - **No named event** 
 
 This is pushing a no named event to the server
@@ -375,6 +381,11 @@ This is pushing a no named event to the server
 dropper.send('this is a pizza')
 ```
 
+This is broadcasting a no named event to the server
+
+```javascript
+dropper.broadcast('this is a pizza')
+```
 
 ### Listening for server events
 - **Named event** 
@@ -396,6 +407,7 @@ dropper.on('message', data => {
   ...foo
 })
 ```
+
 ## Handling disconnections
 
 - **Handle own disconnection**
