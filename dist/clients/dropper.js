@@ -8,7 +8,7 @@ function hasJsonStructure(str) {
         return false;
     }
 }
-function connectWebSocket(endpoint) {
+function connectWebSocket(endpoint, id) {
     return new Promise(function(resolve, reject) {
         const url = new URL(endpoint);
         const { hostname , protocol , port , pathname  } = url;
@@ -17,7 +17,7 @@ function connectWebSocket(endpoint) {
         else if (protocol === 'https:') p = 'wss://';
         else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//';
         else throw new Error("ws: unsupported protocol: " + url.protocol);
-        const uri = `${p + hostname}:${port + pathname}`;
+        const uri = `${p + hostname}:${port + pathname}?id=${id}`;
         let socket = new WebSocket(uri);
         socket.onopen = ()=>{
             resolve(socket);
@@ -29,8 +29,8 @@ function connectWebSocket(endpoint) {
 }
 
 // Copyright 2018-2020 the Deno authors. All rights reserved. MIT license.
-/** A default TextEncoder instance */ const encoder = new TextEncoder();
-/** A default TextDecoder instance */ const decoder = new TextDecoder();
+/** A default TextEncoder instance */ new TextEncoder();
+/** A default TextDecoder instance */ new TextDecoder();
 
 // class PartialReadError extends Deno.errors.UnexpectedEof {
 //     name = "PartialReadError";
@@ -105,7 +105,7 @@ var Status;
     Status[Status[/** RFC 6585, 6 */ "NetworkAuthenticationRequired"] = 511] = "NetworkAuthenticationRequired";
 })(Status || (Status = {
 }));
-const STATUS_TEXT = new Map([
+new Map([
     [
         Status.Continue,
         "Continue"
@@ -431,7 +431,7 @@ function websocketEvents(websocket, { emitOpen =false  } = {
     return iterator;
 }
 
-const MAX_SAFE_INTEGER = BigInt(Number.MAX_SAFE_INTEGER);
+BigInt(Number.MAX_SAFE_INTEGER);
 
 // Copyright 2018-2020 the Deno authors. All rights reserved. MIT license.
 var OpCode;
@@ -477,19 +477,20 @@ var OpCode;
     return bytesToUuid(rnds);
 }
 
-// Copyright 2018-2020 the Deno authors. All rights reserved. MIT license.
-/** A module to print ANSI terminal colors. Inspired by chalk, kleur, and colors
- * on npm.
- *
- * ```
- * import { bgBlue, red, bold } from "https://deno.land/std/fmt/colors.ts";
- * console.log(bgBlue(red(bold("Hello world!"))));
- * ```
- *
- * This module supports `NO_COLOR` environmental variable disabling any coloring
- * if `NO_COLOR` is set.
- *
- * This module is browser compatible. */ const noColor = globalThis.Deno?.noColor ?? true;
+// Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
+// A module to print ANSI terminal colors. Inspired by chalk, kleur, and colors
+// on npm.
+//
+// ```
+// import { bgBlue, red, bold } from "https://deno.land/std/fmt/colors.ts";
+// console.log(bgBlue(red(bold("Hello world!"))));
+// ```
+//
+// This module supports `NO_COLOR` environmental variable disabling any coloring
+// if `NO_COLOR` is set.
+//
+// This module is browser compatible.
+globalThis.Deno?.noColor ?? true;
 
 var DiffType;
 (function(DiffType) {
@@ -499,7 +500,7 @@ var DiffType;
 })(DiffType || (DiffType = {
 }));
 
-// Copyright 2018-2020 the Deno authors. All rights reserved. MIT license.
+// Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
 function validateIntegerRange(value, name, min = -2147483648, max = 2147483647) {
     // The defaults for min and max correspond to the limits of 32-bit integers.
     if (!Number.isInteger(value)) {
@@ -510,7 +511,7 @@ function validateIntegerRange(value, name, min = -2147483648, max = 2147483647) 
     }
 }
 
-// Copyright 2018-2020 the Deno authors. All rights reserved. MIT license.
+// Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
 class DenoStdInternalError extends Error {
     constructor(message){
         super(message);
@@ -523,7 +524,7 @@ class DenoStdInternalError extends Error {
     }
 }
 
-// Copyright 2018-2020 the Deno authors. All rights reserved. MIT license.
+// Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
 // deno-lint-ignore no-explicit-any
 function createIterResult(value, done) {
     return {
@@ -622,6 +623,9 @@ let defaultMaxListeners = 10;
         } else {
             return 0;
         }
+    }
+    static listenerCount(emitter, eventName) {
+        return emitter.listenerCount(eventName);
     }
     _listeners(target, eventName, unwrap) {
         if (!target._events.has(eventName)) {
@@ -899,19 +903,23 @@ let defaultMaxListeners = 10;
         }
     }
 }
+Object.assign(EventEmitter, {
+    EventEmitter
+});
 
 class Dropper extends EventEmitter {
-    uuid = generate();
     _socket = null;
     uri = null;
     constructor(arg, options){
         super();
         this.options = options;
         this.options = Object.assign({
-            endpoint: '/dropper'
+            endpoint: '/dropper',
+            uuid: generate()
         }, this.options);
+        this.uuid = this.options.uuid;
         this.uri = this.uri = arg ? arg + this.options.endpoint : 'ws://localhost:8080' + this.options.endpoint;
-        connectWebSocket(this.uri).then((socket)=>{
+        connectWebSocket(this.uri, this.uuid).then((socket)=>{
             this._socket = socket;
             this.init(this._socket);
         }).catch((err)=>{

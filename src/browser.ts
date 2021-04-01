@@ -9,16 +9,18 @@ import {
 } from '../deps.ts'
 
 export default class Dropper extends EventEmitter {
-  public readonly uuid: string = v4.generate();
+  public uuid: string;
   public _socket: WebSocket | null = null;
   public readonly uri: string | null = null;
   constructor(arg?: string, private options?: any) {
     super();
     this.options = Object.assign({
-      endpoint: '/dropper'
+      endpoint: '/dropper',
+      uuid: v4.generate()
      }, this.options)
+    this.uuid = this.options.uuid
     this.uri = this.uri = arg ? arg + this.options.endpoint : 'ws://localhost:8080' + this.options.endpoint;
-    connectWebSocket(this.uri).then((socket:WebSocket) => {
+    connectWebSocket(this.uri, this.uuid).then((socket:WebSocket) => {
       this._socket = socket;
       this.init(this._socket);
     }).catch((err:any) => {

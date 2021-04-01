@@ -7,7 +7,7 @@ client.on("_all_", (data) => { // Catch all events
 });
 
 client.on("open", () => {
-  console.log("Connected.");
+  console.log(`Client ${client.uuid} successfully connected`);
   client.send("Hello, world!"); // Simple send
   client.send("crawford", {     // Custom event
     name: 'denyncrawford'

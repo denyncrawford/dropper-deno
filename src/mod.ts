@@ -15,18 +15,20 @@ import {
 } from '../deps.ts'
 
 class Dropper extends EventEmitter {
-  public readonly uuid: string = v4.generate();
+  public uuid: string;
   public _socket: WebSocket | null = null;
   public readonly uri: string | null = null;
   constructor(arg: WebSocket | string, private options?: any) {
     super();
     this.options = Object.assign({
-      endpoint: '/dropper'
+      endpoint: '/dropper',
+      uuid: v4.generate()
      }, this.options)
+     this.uuid = this.options.uuid
     if (typeof arg === "string" || typeof arg === 'undefined') {
       this.uri = arg ? arg + this.options.endpoint : 'ws://localhost:8080' + this.options.endpoint;
       // Connect WebSocket
-      connectWebSocket(this.uri).then((socket:WebSocket) => {
+      connectWebSocket(this.uri, this.uuid).then((socket:WebSocket) => {
         this._socket = socket;
         this.initClient(this._socket);
       }).catch((err:any) => {
@@ -167,7 +169,8 @@ class Dropper extends EventEmitter {
    public async handle(req: ServerRequest): Promise <void> {
     const {
       headers,
-      conn
+      conn, 
+      url
     } = req;
     this.user_agent = headers.get('user-agent');  
     acceptWebSocket({
@@ -178,9 +181,9 @@ class Dropper extends EventEmitter {
       })
       .then(
         async (socket: any): Promise < void > => {
-          let client: Dropper | null = new Dropper(socket);
+          let client: Dropper | null = new Dropper(socket, { uuid: new URL(`http://localhost:3000${url}`).searchParams.get('id') });
           const uuid = client.uuid;
-          this.clients.set(client.uuid, client);
+          this.clients.set(uuid, client);
           // Connection checker
           let tm: any;
           const ping = () => {              

@@ -22,7 +22,7 @@ export function isArray (str: string) {
   }
 }
 
-export function connectWebSocket(endpoint: string): Promise<WebSocket> {
+export function connectWebSocket(endpoint: string, id: string): Promise<WebSocket> {
   return new Promise(function(resolve, reject) {
     const url = new URL(endpoint)
     const { hostname, protocol, port, pathname } = url
@@ -31,7 +31,7 @@ export function connectWebSocket(endpoint: string): Promise<WebSocket> {
     else if (protocol === 'https:') p = 'wss://'
     else if (protocol === 'ws:' || protocol === 'wss:') p = protocol + '//'
     else throw new Error("ws: unsupported protocol: " + url.protocol);
-    const uri = `${p+hostname}:${port + pathname}`    
+    const uri = `${p+hostname}:${port + pathname}?id=${id}`    
     let socket = new WebSocket(uri);
     socket.onopen = () => {          
       resolve(socket);

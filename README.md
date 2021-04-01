@@ -13,7 +13,7 @@ Since Dropper is a WebSocket solution for transporting data between servers and 
 The chat test on this repo [lives on glitch](https://deno-dropper.glitch.me/), and you can test the app in production, but you can also run the demo on your local machine:
 
 ```bash
-deno run -A https://deno.land/x/dropper@1.9.0/examples/chat/src/server.js
+deno run -A https://deno.land/x/dropper@1.10.0/examples/chat/src/server.js
 ```
 
 > It will start a server on 8080 port
@@ -23,9 +23,9 @@ deno run -A https://deno.land/x/dropper@1.9.0/examples/chat/src/server.js
 **Server:**
 
 ```ts
-import { Server } from 'https://deno.land/x/dropper@1.9.0/src/mod.ts';
+import { Server } from 'https://deno.land/x/dropper@1.10.0/src/mod.ts';
 //or
-import { Server } from 'https://x.nest.land/dropper@1.9.0/src/mod.ts'
+import { Server } from 'https://x.nest.land/dropper@1.10.0/src/mod.ts'
 ```
 
 **Deno client:**
@@ -33,9 +33,9 @@ import { Server } from 'https://x.nest.land/dropper@1.9.0/src/mod.ts'
 You can import the client directly on your Deno app.
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.9.0/src/mod.ts';
+import Dropper from 'https://deno.land/x/dropper@1.10.0/src/mod.ts';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.9.0/src/mod.ts'
+import Dropper from 'https://x.nest.land/dropper@1.10.0/src/mod.ts'
 ```
 
 **Browser client**
@@ -43,9 +43,9 @@ import Dropper from 'https://x.nest.land/dropper@1.9.0/src/mod.ts'
 You can import this client on the browser in a module script.
 
 ```ts
-import Dropper from 'https://deno.land/x/dropper@1.9.0/dist/clients/dropper.js';
+import Dropper from 'https://deno.land/x/dropper@1.10.0/dist/clients/dropper.js';
 //or
-import Dropper from 'https://x.nest.land/dropper@1.9.0/dist/clients/dropper.js'
+import Dropper from 'https://x.nest.land/dropper@1.10.0/dist/clients/dropper.js'
 ```
 
 ## Usage
