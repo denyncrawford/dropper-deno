@@ -238,7 +238,7 @@ class Dropper extends EventEmitter {
               if (!c?._socket?.isClosed) c?._socket?.send(data_send)
             })
           })
-          const allowConnect = this.emit("connection", client);
+          const allowConnect = this.emit("connection", client, req);
           if (allowConnect !== undefined && !allowConnect) {
             await client.close(1002, "Access Denied");
           }
