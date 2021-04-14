@@ -153,7 +153,7 @@ class Dropper extends EventEmitter {
      }) : JSON.stringify(evt);
      this.clients.forEach(async (client) => {
        // @ts-ignore 
-       if (!client?._socket?.isClosed) await lient?._socket?.send(data_push)
+       if (!client?._socket?.isClosed) await client?._socket?.send(data_push)
      })
    }
 
