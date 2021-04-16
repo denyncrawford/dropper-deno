@@ -32,12 +32,12 @@ function connectWebSocket(endpoint, id) {
 /** A default TextEncoder instance */ new TextEncoder();
 /** A default TextDecoder instance */ new TextDecoder();
 
-// class PartialReadError extends Deno.errors.UnexpectedEof {
-//     name = "PartialReadError";
-//     constructor(){
-//         super("Encountered UnexpectedEof, data only partially read");
-//     }
-// }
+class PartialReadError extends Deno.errors.UnexpectedEof {
+    name = "PartialReadError";
+    constructor(){
+        super("Encountered UnexpectedEof, data only partially read");
+    }
+}
 
 var Status;
 (function(Status) {
@@ -501,17 +501,6 @@ var DiffType;
 }));
 
 // Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
-function validateIntegerRange(value, name, min = -2147483648, max = 2147483647) {
-    // The defaults for min and max correspond to the limits of 32-bit integers.
-    if (!Number.isInteger(value)) {
-        throw new Error(`${name} must be 'an integer' but was ${value}`);
-    }
-    if (value < min || value > max) {
-        throw new Error(`${name} must be >= ${min} && <= ${max}. Value was ${value}`);
-    }
-}
-
-// Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
 class DenoStdInternalError extends Error {
     constructor(message){
         super(message);
@@ -521,6 +510,17 @@ class DenoStdInternalError extends Error {
 /** Make an assertion, if not `true`, then throw. */ function assert(expr, msg = "") {
     if (!expr) {
         throw new DenoStdInternalError(msg);
+    }
+}
+
+// Copyright 2018-2021 the Deno authors. All rights reserved. MIT license.
+function validateIntegerRange(value, name, min = -2147483648, max = 2147483647) {
+    // The defaults for min and max correspond to the limits of 32-bit integers.
+    if (!Number.isInteger(value)) {
+        throw new Error(`${name} must be 'an integer' but was ${value}`);
+    }
+    if (value < min || value > max) {
+        throw new Error(`${name} must be >= ${min} && <= ${max}. Value was ${value}`);
     }
 }
 
@@ -933,7 +933,7 @@ class Dropper extends EventEmitter {
             evt,
             data
         }) : JSON.stringify(evt);
-        if (this._socket !== null) this._socket.send(data_push);
+        /* @ts-ignore */ if (this._socket !== null || !this._socket?.isClosed) this._socket.send(data_push);
     }
     async broadcast(evt, data) {
         if (this._socket !== null) {
@@ -950,11 +950,11 @@ class Dropper extends EventEmitter {
                 evt: '_broadcast_',
                 data: data_push
             });
-            if (this._socket !== null) await this._socket.send(broadcast);
+            /* @ts-ignore */ if (this._socket !== null || !this._socket?.isClosed) await this._socket.send(broadcast);
         }
     }
     async close(code = 1005, reason = "") {
-        if (this._socket !== null) {
+        /* @ts-ignore */ if (this._socket !== null || !this._socket?.isClosed) {
             return await this._socket.close(code, reason);
         }
     }
@@ -975,7 +975,7 @@ class Dropper extends EventEmitter {
             try {
                 if (hasJsonStructure(ev)) {
                     let { evt , data , client  } = JSON.parse(ev);
-                    if (evt == '_ping_') this._socket?.send(JSON.stringify({
+                    /* @ts-ignore */ if (!this?._socket?.isClosed) this._socket?.send(JSON.stringify({
                         evt: '_pong_',
                         data
                     }));

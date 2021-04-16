@@ -32,20 +32,23 @@ export default class Dropper extends EventEmitter {
   // Client API
 
   public async send(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {
-    let data_push: string = data ? JSON.stringify({ evt, data }) : JSON.stringify(evt);    
-    if (this._socket !== null) this._socket.send(data_push)
+    let data_push: string = data ? JSON.stringify({ evt, data }) : JSON.stringify(evt);   
+    /* @ts-ignore */ 
+    if (this._socket !== null || !this._socket?.isClosed ) this._socket.send(data_push)
   }
 
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
     if (this._socket !== null) {
       let data_push: object = data ? { evt, data, client: this.uuid }: { evt: 'message', data: evt, client: this.uuid };
       let broadcast: string = JSON.stringify({evt: '_broadcast_', data: data_push})
-      if (this._socket !== null) await this._socket.send(broadcast)
+      /* @ts-ignore */
+      if (this._socket !== null || !this._socket?.isClosed ) await this._socket.send(broadcast)
     }
   }
 
   public async close(code: number = 1005, reason: string = ""): Promise<void> {
-    if (this._socket !== null) {
+    /* @ts-ignore */
+    if (this._socket !== null || !this._socket?.isClosed) {
       return await this._socket.close(code, reason);
     }
   }
@@ -66,7 +69,8 @@ export default class Dropper extends EventEmitter {
       try {
         if (hasJsonStructure(ev)) {
           let { evt, data, client } = JSON.parse(ev);
-          if (evt == '_ping_') this._socket?.send(JSON.stringify({ evt: '_pong_', data}))
+          /* @ts-ignore */
+          if (!this?._socket?.isClosed) this._socket?.send(JSON.stringify({ evt: '_pong_', data}))
           if (evt !== '_ping_' && evt !== '_pong_') this.emit("_all_", ev);
           if (client !== this.uuid) this.emit(evt, data);
         } else {
