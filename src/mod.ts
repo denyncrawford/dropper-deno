@@ -46,7 +46,7 @@ class Dropper extends EventEmitter {
   public async send(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {
     let data_push: string = data ? JSON.stringify({ evt, data }) : JSON.stringify(evt);    
     /* @ts-ignore */
-    if (this._socket !== null || !this._socket.isCosed) await this._socket.send(data_push)
+    if (this._socket !== null || !this._socket?.isCosed) await this._socket?.send(data_push)
   }
 
   public async broadcast(evt: string | Uint8Array | object, data?: string | Uint8Array | object): Promise<void> {    
@@ -55,14 +55,14 @@ class Dropper extends EventEmitter {
       let data_push: object = data ? { evt, data, client: this.uuid }: { evt: 'message', data: evt, client: this.uuid };
       let broadcast: string = JSON.stringify({evt: '_broadcast_', data: data_push})
       /* @ts-ignore */ 
-    if (this._socket !== null || !this._socket?.isClosed ) await this._socket.send(broadcast)
+    if (this._socket !== null || !this._socket?.isClosed ) await this._socket?.send(broadcast)
     }
   }
 
   public async close(code: number = 1005, reason: string = ""): Promise<void> {
     /* @ts-ignore */ 
     if (this._socket !== null || !this._socket?.isClosed ) {
-      return await this._socket.close(code, reason)
+      return await this._socket?.close(code, reason)
     }
   }
 
