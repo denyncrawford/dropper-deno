@@ -31,14 +31,6 @@ function connectWebSocket(endpoint, id) {
 // Copyright 2018-2020 the Deno authors. All rights reserved. MIT license.
 /** A default TextEncoder instance */ new TextEncoder();
 /** A default TextDecoder instance */ new TextDecoder();
-
-class PartialReadError extends Deno.errors.UnexpectedEof {
-    name = "PartialReadError";
-    constructor(){
-        super("Encountered UnexpectedEof, data only partially read");
-    }
-}
-
 var Status;
 (function(Status) {
     Status[Status[/** RFC 7231, 6.2.1 */ "Continue"] = 100] = "Continue";
