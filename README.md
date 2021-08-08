@@ -6,7 +6,7 @@ Dropper is a custom **Event-driven WebSocket framework** for Deno, using the den
 
 ## What can I do with Dropper?
 
-Since Dropper is a WebSocket solution for transporting data between servers and clients, you can do whatever you need to go on real-time, like chat apps, trading, bots, database and website hot refreshs, etc. It's Side by Side APIs are designed to handle custom events sent by the application peers, you can work with the structured event handlers that allows to send and receive filtered data in a woshhh.
+Since Dropper is a WebSocket solution for transporting data between servers and clients, you can do whatever you need to go on real-time, like chat apps, trading, bots, database and website hot refreshs, etc. Its Side by Side APIs are designed to handle custom events sent by the application peers, you can work with the structured event handlers that allows to send and receive filtered data in a woshhh.
 
 ## Quick Demo
 
