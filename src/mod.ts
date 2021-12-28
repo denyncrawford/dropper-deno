@@ -9,8 +9,6 @@ import {
   EventEmitter, 
   v4, 
   serve,
-  ServerRequest,
-  acceptWebSocket,
   websocketEvents
 } from '../deps.ts'
 
@@ -66,7 +64,7 @@ class Dropper extends EventEmitter {
     }
   }
 
-  public async ping(data?: string) {
+  public ping(data?: string) {
     this?._socket?.send(JSON.stringify({ evt: '_ping_', data}))
   }
 
@@ -152,7 +150,7 @@ class Dropper extends EventEmitter {
 
    // Server API
 
-   public async send(evt: string | Uint8Array | object, data ? : string | Uint8Array | object): Promise < void > {
+   public send(evt: string | Uint8Array | object, data ? : string | Uint8Array | object) {
      let data_push: string = data ? JSON.stringify({
        evt,
        data
@@ -163,97 +161,86 @@ class Dropper extends EventEmitter {
      })
    }
 
-   private async serve(): Promise < void > {
-    const server = serve(`${this.options?.host}:${this.options?.port}`);
-    for await (const req of server) {
-     if (this.willClose) break;
-     this.handle(req)
-    }
+   private async serve() {
+    await serve(this.handle, this.options);
   }
 
    // Server side handler
 
-   public async handle(req: ServerRequest): Promise <void> {
+   public async handle(req: Request): Promise <Response> {
     const {
       headers,
-      conn, 
       url
     } = req;
-    this.user_agent = headers.get('user-agent');  
-    acceptWebSocket({
-        conn,
-        headers,
-        bufReader: req.r,
-        bufWriter: req.w,
-      })
-      .then(
-        async (socket: any): Promise < void > => {
-          let client: Dropper | null = new Dropper(socket, { uuid: new URL(`http://localhost:3000${url}`).searchParams.get('id') });
-          const uuid = client.uuid;
-          this.clients.set(uuid, client);
-          // Connection checker
-          let tm: any;
-          const ping = () => {              
-             // @ts-ignore
-             if (!client?._socket?.isClosed) client.ping()
-             tm = setTimeout( () => {
-               clearInterval(int);
-               this.emit("disconnection", 1001, 'Client is leaving', client)
-               this.clients.delete(uuid);
-               this.clients.forEach(async (c) => {
-                 let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
-                 await c?._socket?.send(send_disconnection)
-               })
-               client = null;
-             }, 1000);
-          }
-
-          // Interval initialization
-
-          let userCheck: RegExp = new RegExp('Deno', 'i');
-
-          let int: any = userCheck.test(this.user_agent) ? setInterval(ping, this.options.interval) : null;
-          client.on('_pong_', () => {               
-           clearTimeout(tm);
-          })
-          client.on("close", (code, reason) => {
+    this.user_agent = headers.get('user-agent');
+    const {response, socket} = Deno.upgradeWebSocket(req)
+    try{
+      let client: Dropper | null = new Dropper(socket, { uuid: new URL(`http://localhost:3000${url}`).searchParams.get('id') });
+      const uuid = client.uuid;
+      this.clients.set(uuid, client);
+      // Connection checker
+      let tm: any;
+      const ping = () => {              
+          // @ts-ignore
+          if (!client?._socket?.isClosed) client.ping()
+          tm = setTimeout( () => {
             clearInterval(int);
-            this.emit("disconnection", code, reason || 'Client is leaving', client)
+            this.emit("disconnection", 1001, 'Client is leaving', client)
             this.clients.delete(uuid);
             this.clients.forEach(async (c) => {
-             let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
-             // @ts-ignore 
-             if (!c?._socket?.isClosed) await c?._socket?.send(send_disconnection)
+              let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
+              await c?._socket?.send(send_disconnection)
             })
             client = null;
-          });
-          // Global Events          
-          client.on('_all_', ev => {
-           this.emit('_all_', ev);
-           if (hasJsonStructure(ev)) {
-             let { evt, data } = JSON.parse(ev);
-             this.emit(evt, data)
-           } else {
-             this.emit('message', ev)
-           }
-          })
-          // Broadcast
-          client.on("_broadcast_", async data => {
-            let data_send = JSON.stringify(data)
-            this.clients.forEach(async (c) => {
-              // @ts-ignore 
-              if (!c?._socket?.isClosed) c?._socket?.send(data_send)
-            })
-          })
-          const allowConnect = this.emit("connection", client, req);
-          if (allowConnect !== undefined && !allowConnect) {
-            await client.close(1002, "Access Denied");
-          }
-        }
-      )
-      .catch((err: Error): void => {
-        this.emit("error", err);
+          }, 1000);
+      }
+
+      // Interval initialization
+
+      let userCheck: RegExp = new RegExp('Deno', 'i');
+
+      let int: any = userCheck.test(this.user_agent) ? setInterval(ping, this.options.interval) : null;
+      client.on('_pong_', () => {               
+        clearTimeout(tm);
+      })
+      client.on("close", (code, reason) => {
+        clearInterval(int);
+        this.emit("disconnection", code, reason || 'Client is leaving', client)
+        this.clients.delete(uuid);
+        this.clients.forEach(async (c) => {
+          let send_disconnection = JSON.stringify({evt: "disconnection", data: uuid})
+          // @ts-ignore 
+          if (!c?._socket?.isClosed) await c?._socket?.send(send_disconnection)
+        })
+        client = null;
       });
+      // Global Events          
+      client.on('_all_', ev => {
+        this.emit('_all_', ev);
+        if (hasJsonStructure(ev)) {
+          let { evt, data } = JSON.parse(ev);
+          this.emit(evt, data)
+        } else {
+          this.emit('message', ev)
+        }
+      })
+      // Broadcast
+      client.on("_broadcast_", async data => {
+        let data_send = JSON.stringify(data)
+        this.clients.forEach(async (c) => {
+          // @ts-ignore 
+          if (!c?._socket?.isClosed) c?._socket?.send(data_send)
+        })
+      })
+      const allowConnect = this.emit("connection", client, req);
+      if (allowConnect !== undefined && !allowConnect) {
+        await client.close(1002, "Access Denied");
+      }
+    }
+    catch(err){
+      this.emit("error", err);
+    }
+    return response;
    }
  }
 
